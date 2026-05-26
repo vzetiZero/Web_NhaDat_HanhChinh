@@ -1,6 +1,7 @@
 {
   "name": "chung-tu-nha-dat",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "description": "Web app tạo hợp đồng tặng quyền sử dụng đất - Cloudflare Workers + D1",
   "scripts": {

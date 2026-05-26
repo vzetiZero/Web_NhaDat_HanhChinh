@@ -18,6 +18,7 @@ import { templatesRouter, adminTemplatesRouter } from '@/modules/templates/templ
 import { filesRouter } from '@/modules/files/files.routes';
 import { adminRouter, adminContractsRouter } from '@/modules/admin/admin.routes';
 import { agenciesRouter, adminAgenciesRouter } from '@/modules/agencies/agencies.routes';
+import { frontendRouter } from '@/frontend/frontend.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -55,7 +56,10 @@ export function createApp(): Express {
 
   // ==== Health ====
   app.get('/healthz', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
-  app.get('/', (_req, res) =>
+  // ==== Frontend HTML ====
+  app.use(frontendRouter);
+
+  app.get('/api', (_req, res) =>
     res.json({
       name: 'Chứng Từ Nhà Đất API',
       version: process.env.npm_package_version || '0.1.0',

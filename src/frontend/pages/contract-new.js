@@ -332,7 +332,12 @@ async function bindAddressPicker(rootEl, addr, pathPrefix) {
   let currentWards = addr.provinceCode ? await loadWards(addr.provinceCode) : [];
 
   function normalizeText(s) {
-    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    return String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\u0111/g, 'd')
+      .replace(/\u0110/g, 'D');
   }
 
   function matchesSearch(text, query) {
@@ -406,7 +411,7 @@ async function bindAddressPicker(rootEl, addr, pathPrefix) {
     const parts = [];
     if (addr.chiTiet?.trim()) parts.push(addr.chiTiet.trim());
     if (addr.wardName) parts.push(addr.wardName);
-    if (addr.provinceName) parts.push('tỉnh ' + addr.provinceName.replace(/^t[ìi]nh\\s*/i, '').replace(/^th[àa]nh\\s*ph[ốo]\\s*/i, 'thành phố '));
+    if (addr.provinceName) parts.push(addr.provinceName);
     addr.full = parts.join(', ');
     if (previewEl) previewEl.textContent = addr.full || '(chưa có địa chỉ)';
   }

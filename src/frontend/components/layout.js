@@ -233,9 +233,31 @@ window.api = async function(path, opts = {}) {
   const translated = translatePath(path);
   const url = translated.startsWith('http') ? translated : window.API_BASE + translated;
 
-  const res = await fetch(url, { ...opts, headers });
-  let data = null;
-  try { data = await res.json(); } catch {}
+  async function doFetch(targetUrl) {
+    const response = await fetch(targetUrl, { ...opts, headers });
+    let payload = null;
+    try { payload = await response.json(); } catch {}
+    return { response, payload };
+  }
+
+  let res, data;
+  try {
+    const r = await doFetch(url);
+    res = r.response;
+    data = r.payload;
+  } catch (err) {
+    const canRetrySameOrigin =
+      !translated.startsWith('http') &&
+      window.API_BASE &&
+      translated.startsWith('/api/');
+    if (!canRetrySameOrigin) throw err;
+    const r = await doFetch(translated);
+    res = r.response;
+    data = r.payload;
+    localStorage.removeItem('ctnd_api_base');
+    window.API_BASE = '';
+  }
+
   if (res.status === 401) {
     localStorage.removeItem('ctnd_token');
     localStorage.removeItem('ctnd_user');

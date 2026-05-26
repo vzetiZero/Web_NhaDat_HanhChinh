@@ -1,0 +1,395 @@
+// Prisma schema - Chứng Từ Nhà Đất
+// Migrated từ Cloudflare D1 (SQLite) sang PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl dùng cho prisma migrate (cần connection trực tiếp, không qua pooler)
+  // Comment out nếu không có IPv6/IPv4 add-on - Prisma sẽ fallback dùng url chính
+  // directUrl = env("DIRECT_URL")
+}
+
+// =========================================
+// Core: Users + Devices + Audit
+// =========================================
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  passwordHash    String    @map("password_hash")
+  passwordSalt    String?   @map("password_salt")
+  fullName        String?   @map("full_name")
+  phone           String?
+  cccdEncrypted   String?   @map("cccd_encrypted")
+  isAdmin         Boolean   @default(false) @map("is_admin")
+  status          UserStatus @default(active)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  lastLoginAt     DateTime? @map("last_login_at")
+
+  device          Device?
+  contracts       Contract[]
+  auditLogs       AuditLog[]
+  agencyHistory   UserAgencyHistory[]
+  agencySuggestions UserAgencySuggestion[]
+  generatedFiles  GeneratedFile[]
+
+  @@index([email])
+  @@index([isAdmin])
+  @@map("users")
+}
+
+model Device {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique @map("user_id")
+  fingerprint     String
+  userAgent       String?  @map("user_agent")
+  ipAddress       String?  @map("ip_address")
+  boundAt         DateTime @default(now()) @map("bound_at")
+  lastUsedAt      DateTime @default(now()) @map("last_used_at")
+  resetCount      Int      @default(0) @map("reset_count")
+  status          String   @default("active")
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fingerprint])
+  @@map("devices")
+}
+
+model AuditLog {
+  id                Int      @id @default(autoincrement())
+  userId            Int?     @map("user_id")
+  adminId           Int?     @map("admin_id")
+  event             String
+  targetType        String?  @map("target_type")
+  targetId          Int?     @map("target_id")
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  deviceFingerprint String?  @map("device_fingerprint")
+  detail            Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// =========================================
+// Settings (key-value)
+// =========================================
+
+model Setting {
+  key       String   @id
+  value     String?
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// =========================================
+// Contracts + Templates
+// =========================================
+
+enum ContractStatus {
+  draft
+  rendered
+  signed
+  archived
+}
+
+model ContractTemplate {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  name          String
+  description   String?
+  storageBucket String   @map("storage_bucket")
+  storageKey    String   @map("storage_key")
+  fieldSchema   Json?    @map("field_schema")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  contracts     Contract[]
+
+  @@map("contract_templates")
+}
+
+model Contract {
+  id              Int      @id @default(autoincrement())
+  contractNumber  String   @unique @map("contract_number")
+  userId          Int      @map("user_id")
+  templateId      Int      @map("template_id")
+  formData        Json     @map("form_data")
+  status          ContractStatus @default(draft)
+  // Liên kết tới file đã render (lưu trong generated_files)
+  docxFileId      Int?     @map("docx_file_id")
+  pdfFileId       Int?     @map("pdf_file_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id])
+  template        ContractTemplate @relation(fields: [templateId], references: [id])
+  docxFile        GeneratedFile?   @relation("ContractDocx", fields: [docxFileId], references: [id])
+  pdfFile         GeneratedFile?   @relation("ContractPdf", fields: [pdfFileId], references: [id])
+  generatedFiles  GeneratedFile[]  @relation("ContractFiles")
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("contracts")
+}
+
+// =========================================
+// Generated files metadata (Supabase Storage)
+// =========================================
+
+enum FileKind {
+  contract_docx
+  contract_pdf
+  contract_html
+  template
+  user_upload
+  other
+}
+
+model GeneratedFile {
+  id            Int      @id @default(autoincrement())
+  kind          FileKind
+  storageBucket String   @map("storage_bucket")
+  storageKey    String   @map("storage_key")
+  fileName      String   @map("file_name")
+  mimeType      String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  createdById   Int?     @map("created_by_id")
+  contractId    Int?     @map("contract_id")
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  createdBy     User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  contract      Contract? @relation("ContractFiles", fields: [contractId], references: [id], onDelete: Cascade)
+
+  contractsAsDocx Contract[] @relation("ContractDocx")
+  contractsAsPdf  Contract[] @relation("ContractPdf")
+
+  @@index([contractId])
+  @@index([kind])
+  @@map("generated_files")
+}
+
+// =========================================
+// Hành chính (administrative divisions) + Cơ quan
+// Chuẩn bị cho phase Agency suggestion
+// =========================================
+
+model Province {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  nameCurrent     String   @map("name_current")
+  nameOld         String?  @map("name_old")
+  // sau sáp nhập 2025: full name (vd "tỉnh Đồng Tháp")
+  status          String   @default("current")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  communes        Commune[]
+  districtsOld    DistrictOld[]
+  agencies        LandAgency[]
+  history         UserAgencyHistory[]
+  suggestions     UserAgencySuggestion[]
+
+  @@index([nameCurrent])
+  @@map("provinces")
+}
+
+model DistrictOld {
+  id              Int      @id @default(autoincrement())
+  provinceId      Int      @map("province_id")
+  nameOld         String   @map("name_old")
+  nameNormalized  String?  @map("name_normalized")
+  status          String   @default("merged")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  province        Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  communes        Commune[]
+  agencies        LandAgency[]
+  history         UserAgencyHistory[]
+  suggestions     UserAgencySuggestion[]
+
+  @@index([provinceId, nameOld])
+  @@index([nameNormalized])
+  @@map("districts_old")
+}
+
+model Commune {
+  id              Int      @id @default(autoincrement())
+  provinceId      Int      @map("province_id")
+  districtOldId   Int?     @map("district_old_id")
+  nameCurrent     String?  @map("name_current")
+  nameOld         String?  @map("name_old")
+  nameNormalized  String?  @map("name_normalized")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  province        Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  districtOld     DistrictOld? @relation(fields: [districtOldId], references: [id], onDelete: SetNull)
+
+  @@index([provinceId])
+  @@index([nameNormalized])
+  @@map("communes")
+}
+
+// =========================================
+// Land Agency (cơ quan đất đai) - hệ thống học từ user
+// =========================================
+
+enum AgencyType {
+  land_registration_office
+  land_registration_branch
+  department_of_agriculture_environment
+  district_people_committee
+  province_people_committee
+  notary_office
+  tax_department
+  other
+}
+
+enum TrustLevel {
+  admin_verified
+  seed_data
+  user_confirmed
+  system_suggested
+}
+
+enum SourceType {
+  seed
+  import
+  user_input
+  admin_input
+}
+
+enum AgencyStatus {
+  active
+  old_name
+  merged
+  archived
+}
+
+model LandAgency {
+  id              Int        @id @default(autoincrement())
+  officialName    String     @map("official_name")
+  nameNormalized  String?    @map("name_normalized")
+  shortName       String?    @map("short_name")
+  provinceId      Int?       @map("province_id")
+  districtOldId   Int?       @map("district_old_id")
+  agencyType      AgencyType @map("agency_type")
+  parentAgency    String?    @map("parent_agency")
+  status          AgencyStatus @default(active)
+  trustLevel      TrustLevel @default(seed_data) @map("trust_level")
+  sourceType      SourceType @default(seed) @map("source_type")
+  sourceNote      String?    @map("source_note")
+  // Đếm thống kê tăng dần
+  confirmCount    Int        @default(0) @map("confirm_count")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  province        Province?     @relation(fields: [provinceId], references: [id], onDelete: SetNull)
+  districtOld     DistrictOld?  @relation(fields: [districtOldId], references: [id], onDelete: SetNull)
+  aliases         AgencyAlias[]
+  history         UserAgencyHistory[]
+  suggestions     UserAgencySuggestion[]
+
+  @@index([provinceId, districtOldId])
+  @@index([nameNormalized])
+  @@index([agencyType])
+  @@index([status, trustLevel])
+  @@map("land_agencies")
+}
+
+enum AliasStatus {
+  pending_review
+  user_confirmed
+  admin_verified
+  rejected
+}
+
+model AgencyAlias {
+  id                Int      @id @default(autoincrement())
+  agencyId          Int      @map("agency_id")
+  aliasText         String   @map("alias_text")
+  aliasNormalized   String?  @map("alias_normalized")
+  sourceType        SourceType @default(user_input) @map("source_type")
+  confirmedCount    Int      @default(0) @map("confirmed_count")
+  rejectedCount     Int      @default(0) @map("rejected_count")
+  status            AliasStatus @default(pending_review)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  agency            LandAgency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([aliasNormalized])
+  @@index([status])
+  @@map("agency_aliases")
+}
+
+model UserAgencyHistory {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  agencyId        Int      @map("agency_id")
+  provinceId      Int?     @map("province_id")
+  districtOldId   Int?     @map("district_old_id")
+  rawInput        String?  @map("raw_input")
+  normalizedInput String?  @map("normalized_input")
+  usageCount      Int      @default(1) @map("usage_count")
+  lastUsedAt      DateTime @default(now()) @map("last_used_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency          LandAgency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  province        Province?    @relation(fields: [provinceId], references: [id], onDelete: SetNull)
+  districtOld     DistrictOld? @relation(fields: [districtOldId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, agencyId])
+  @@index([userId])
+  @@map("user_agency_history")
+}
+
+enum SuggestionAdminStatus {
+  pending
+  approved
+  rejected
+  merged
+}
+
+model UserAgencySuggestion {
+  id                  Int      @id @default(autoincrement())
+  userId              Int?     @map("user_id")
+  rawInput            String   @map("raw_input")
+  normalizedInput     String?  @map("normalized_input")
+  provinceId          Int?     @map("province_id")
+  districtOldId       Int?     @map("district_old_id")
+  suggestedAgencyId   Int?     @map("suggested_agency_id")
+  userConfirmed       Boolean  @default(false) @map("user_confirmed")
+  adminStatus         SuggestionAdminStatus @default(pending) @map("admin_status")
+  adminNote           String?  @map("admin_note")
+  userNote            String?  @map("user_note")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  user                User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  province            Province?    @relation(fields: [provinceId], references: [id], onDelete: SetNull)
+  districtOld         DistrictOld? @relation(fields: [districtOldId], references: [id], onDelete: SetNull)
+  suggestedAgency     LandAgency?  @relation(fields: [suggestedAgencyId], references: [id], onDelete: SetNull)
+
+  @@index([adminStatus])
+  @@index([normalizedInput])
+  @@map("user_agency_suggestions")
+}

@@ -781,7 +781,7 @@ function renderStepThuaDat() {
         \${field({ label: 'Hạn chế quyền', required: false, hint: 'Mặc định "Không có". Nếu có thì ghi rõ.', errorId: 'err_han',
           inputHtml: \`<input type="text" data-bind="thuaDat.hanCheQuyen" class="form-input" value="\${esc(t.hanCheQuyen)}" placeholder="Không có" />\` })}
         \${field({ label: 'Giá trị (VNĐ)', required: false, hint: HINTS.giaTri, errorId: 'err_giatri',
-          inputHtml: \`<input type="number" min="0" data-bind="thuaDat.giaTri" class="form-input" value="\${esc(t.giaTri)}" placeholder="500000000" />
+          inputHtml: \`<input type="text" inputmode="numeric" data-money="thuaDat.giaTri" class="form-input" value="\${t.giaTri ? Number(t.giaTri).toLocaleString('vi-VN') : ''}" placeholder="500,000,000" />
             <div class="form-hint" id="gia-tri-chu" style="margin-top:4px"></div>\` })}
       </div>
     </fieldset>
@@ -1236,20 +1236,50 @@ function updateGiaTriChu() {
   el.innerHTML = '💰 Bằng chữ: <b>' + esc(numberToVN(n)) + '</b>';
 }
 
+// LUÔN overwrite dienTichBangChu khi user gõ diện tích.
+// Nếu user muốn custom, edit ô "Diện tích bằng chữ" SAU khi đã gõ xong diện tích.
 function updateDienTichChu() {
   const el = document.getElementById('dt-chu');
-  if (!el) return;
+  const dtChuEl = document.querySelector('[data-bind="thuaDat.dienTichBangChu"]');
   const v = String(form.thuaDat.dienTich || '').replace(',', '.');
   const n = Number(v);
-  if (!n) { el.textContent = ''; return; }
+  if (!n) {
+    if (el) el.textContent = '';
+    if (dtChuEl && !window._userEditedDtChu) {
+      dtChuEl.value = '';
+      form.thuaDat.dienTichBangChu = '';
+    }
+    return;
+  }
   const chu = areaToVN(v);
-  el.innerHTML = '📏 Bằng chữ: <b>' + esc(chu) + '</b>';
-  // Auto-fill dienTichBangChu if user hasn't manually edited
-  const dtChuEl = document.querySelector('[data-bind="thuaDat.dienTichBangChu"]');
-  if (dtChuEl && !form.thuaDat.dienTichBangChu) {
+  if (el) el.innerHTML = '📏 Bằng chữ: <b>' + esc(chu) + '</b>';
+  // Overwrite trừ khi user manually đã sửa ô dienTichBangChu
+  if (dtChuEl && !window._userEditedDtChu) {
     dtChuEl.value = chu;
     form.thuaDat.dienTichBangChu = chu;
   }
+}
+
+// Money formatter: hiển thị "100,000" trong input, lưu giá trị thuần làm number
+// Áp dụng cho field thuaDat.giaTri
+function formatMoneyInput(el) {
+  // Lưu cursor position để giữ vị trí gõ sau khi reformat
+  const prevLen = el.value.length;
+  const prevCursor = el.selectionStart || 0;
+  const raw = String(el.value).replace(/[^0-9]/g, '');
+  if (!raw) {
+    el.value = '';
+    form.thuaDat.giaTri = '';
+    return '';
+  }
+  const num = Number(raw);
+  const formatted = num.toLocaleString('vi-VN');
+  el.value = formatted;
+  form.thuaDat.giaTri = num; // lưu number thuần
+  // Điều chỉnh cursor: dịch theo số dấu phẩy mới được thêm
+  const diff = formatted.length - prevLen;
+  try { el.setSelectionRange(prevCursor + diff, prevCursor + diff); } catch {}
+  return num;
 }
 
 function renderPreviewSummary() {

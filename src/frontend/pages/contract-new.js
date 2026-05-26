@@ -10,7 +10,7 @@ export function renderContractNewPage(env) {
     title: 'Tạo hồ sơ',
     requireAuth: true,
     bodyHtml: `
-      <div class="max-w-5xl mx-auto px-4 py-6">
+      <div class="max-w-7xl mx-auto px-4 py-6">
 
         <div class="flex items-center justify-between mb-4">
           <div>
@@ -569,7 +569,7 @@ function renderPersonForm(person, pathPrefix, title, isChuHo = false) {
           errorId: 'err_' + pathPrefix.replace(/[^a-zA-Z0-9]/g, '_') + '_cccd',
           inputHtml: \`
             <div class="flex gap-2">
-              <select data-bind="\${pathPrefix}.loaiGiayTo" class="form-select" style="max-width:190px">
+              <select data-bind="\${pathPrefix}.loaiGiayTo" class="form-select" style="min-width:220px;max-width:240px">
                 \${GIAY_TO_OPTIONS.map(([value, label]) => \`<option value="\${value}" \${(person.loaiGiayTo || 'canCuoc') === value ? 'selected' : ''}>\${label}</option>\`).join('')}
               </select>
               <input type="text" inputmode="numeric" data-bind="\${pathPrefix}.cccd" data-required data-pattern="cccd" class="form-input" value="\${esc(person.cccd)}" placeholder="087065003989" maxlength="12" />

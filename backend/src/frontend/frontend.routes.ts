@@ -10,9 +10,13 @@ interface FrontendModule {
 }
 
 const router = Router();
+const nativeImport = new Function('specifier', 'return import(specifier)') as (
+  specifier: string
+) => Promise<FrontendModule>;
 
 function findRepoRoot(): string {
   const candidates = [
+    path.resolve(__dirname, '..', 'web'),
     process.cwd(),
     path.resolve(process.cwd(), '..'),
     path.resolve(__dirname, '..', '..', '..'),
@@ -42,7 +46,7 @@ function frontendEnv() {
 
 async function importRootModule(relativePath: string): Promise<FrontendModule> {
   const fullPath = path.join(repoRoot, relativePath);
-  return import(pathToFileURL(fullPath).href) as Promise<FrontendModule>;
+  return nativeImport(pathToFileURL(fullPath).href);
 }
 
 function html(res: Response, content: string, status = 200) {

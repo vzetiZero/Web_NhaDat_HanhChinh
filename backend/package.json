@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json && node scripts/copy-frontend-assets.mjs",
     "start": "node dist/index.js",
     "db:dev": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",

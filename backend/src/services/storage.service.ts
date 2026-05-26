@@ -91,6 +91,17 @@ class StorageService {
     return data.signedUrl;
   }
 
+  /**
+   * Lấy public URL cho file trong PUBLIC bucket.
+   * Trả về URL trực tiếp Supabase Storage (CDN), không expire.
+   * QUAN TRỌNG: chỉ dùng cho bucket đã set public=true.
+   */
+  getPublicUrl(bucket: Bucket, key: string): string {
+    const supabase = getSupabase();
+    const { data } = supabase.storage.from(bucket).getPublicUrl(key);
+    return data.publicUrl;
+  }
+
   async delete(bucket: Bucket, keys: string | string[]): Promise<void> {
     const supabase = getSupabase();
     const list = Array.isArray(keys) ? keys : [keys];

@@ -4,6 +4,9 @@
 // - Toggle "địa chỉ cũ ↔ địa chỉ mới sau sáp nhập" với gợi ý qua API
 
 import { renderPageShell } from '../components/layout.js';
+import { parseCccdQrJs } from '../utils/parse-cccd-qr.js';
+import { qrImageDecoderJs } from '../utils/qr-image-decoder.js';
+import { cccdQrScannerJs } from '../components/cccd-qr-scanner.js';
 
 export function renderContractNewPage(env) {
   return renderPageShell(env, {
@@ -90,6 +93,10 @@ function stepperHtml() {
 
 function contractFormScript() {
   return `
+${parseCccdQrJs()}
+${qrImageDecoderJs()}
+${cccdQrScannerJs()}
+
 const DRAFT_KEY = 'ctnd_draft_form_v3';
 
 const emptyAddress = () => ({
@@ -565,12 +572,18 @@ function renderPersonForm(person, pathPrefix, title, isChuHo = false) {
   const side = pathPrefix.split('.')[0];
   return \`
     <div class="border border-slate-200 rounded-lg p-4 mb-3 \${isChuHo ? 'bg-blue-50/50' : 'bg-slate-50'}" data-person-path="\${pathPrefix}">
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
           <i data-lucide="\${isChuHo ? 'user-check' : 'user'}" class="w-4 h-4 text-primary-500"></i>
           \${title}
         </div>
-        \${!isChuHo ? \`<button type="button" class="text-red-500 text-xs hover:underline" onclick="removeThanhVien('\${side}', \${idx})"><i data-lucide="trash-2" class="w-3 h-3 inline"></i> Xóa</button>\` : ''}
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" onclick="openCccdQrFor('\${side}', \${idx})" class="text-xs \${isChuHo ? 'bg-primary-500 hover:bg-primary-600 text-white' : 'bg-white border border-primary-500 text-primary-500 hover:bg-primary-50'} px-2.5 py-1.5 rounded-md inline-flex items-center gap-1">
+            <i data-lucide="scan-line" class="w-3.5 h-3.5"></i>
+            Quét QR CCCD
+          </button>
+          \${!isChuHo ? \`<button type="button" class="text-red-500 text-xs hover:underline" onclick="removeThanhVien('\${side}', \${idx})"><i data-lucide="trash-2" class="w-3 h-3 inline"></i> Xóa</button>\` : ''}
+        </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         \${field({
@@ -639,6 +652,131 @@ window.addThanhVien = function(side) {
   saveDraft();
   renderStep();
 };
+
+// ============ CCCD QR Scanner integration ============
+// Mở modal scanner cho 1 person bất kỳ:
+//   memberIdx = -1 → chủ hộ
+//   memberIdx >= 0 → form[side].thanhVien[memberIdx]
+window.openCccdQrFor = function(side, memberIdx) {
+  if (!window.cccdQr || typeof window.cccdQr.open !== 'function') {
+    if (window.toast) window.toast('Scanner chưa sẵn sàng, thử lại sau', 'warn');
+    return;
+  }
+  const sideLabel = side === 'benA' ? 'Bên A' : 'Bên B';
+  const targetLabel = memberIdx == null || memberIdx < 0
+    ? sideLabel + ' — Người đại diện'
+    : sideLabel + ' — Thành viên ' + (memberIdx + 1);
+  // Lưu memberIdx vào closure để callback áp dụng đúng person
+  window.cccdQr.open(side, (data, sideArg) => applyCccdToPerson(data, sideArg, memberIdx), targetLabel);
+};
+
+async function applyCccdToPerson(data, side, memberIdx) {
+  if (!data || !form[side]) return;
+  const isChuHo = memberIdx == null || memberIdx < 0;
+  const p = isChuHo
+    ? form[side].chuHo
+    : form[side].thanhVien?.[memberIdx];
+  if (!p) {
+    if (window.toast) window.toast('Không tìm thấy người để điền dữ liệu', 'error');
+    return;
+  }
+  await fillPersonFromQr(p, data);
+  saveDraft();
+  renderStep();
+}
+
+async function fillPersonFromQr(p, data) {
+
+  // Map QR data → form fields
+  if (data.cccd) p.cccd = data.cccd;
+  if (data.hoTen) p.hoTen = data.hoTen.toUpperCase();
+  if (data.ngaySinh) {
+    p.ngaySinhISO = data.ngaySinh;                 // yyyy-mm-dd
+    p.ngaySinh = window.isoToDDMMYYYY(data.ngaySinh); // dd/mm/yyyy
+  }
+  if (data.ngayCap) {
+    p.ngayCapCCCDISO = data.ngayCap;
+    p.ngayCapCCCD = window.isoToDDMMYYYY(data.ngayCap);
+  }
+  // Suy ra danh xưng từ giới tính nếu có
+  if (data.gioiTinh === 'Nam') p.danhXung = 'Ông';
+  else if (data.gioiTinh === 'Nữ') p.danhXung = 'Bà';
+  // Loại giấy tờ: CCCD 12 số = canCuoc; 9 số = cmndCu
+  if (data.cccd) p.loaiGiayTo = data.cccd.length === 12 ? 'canCuoc' : 'cmndCu';
+  // Nơi thường trú: parse "xóm, xã, tỉnh" và RESET dropdown cũ để không lẫn dữ liệu.
+  if (data.noiThuongTru) {
+    p.diaChi = await parseNoiThuongTruToAddress(data.noiThuongTru);
+  }
+}
+
+// Parse free text từ QR ("Xóm A, Xã B, Tỉnh C") → object address khớp với dropdown.
+// LUÔN reset toàn bộ trước khi map để không kế thừa draft cũ (vd Đồng Tháp + Mỹ Hiệp).
+async function parseNoiThuongTruToAddress(noiThuongTru) {
+  const addr = emptyAddress();
+  if (!noiThuongTru) return addr;
+  const parts = noiThuongTru.split(',').map(s => s.trim()).filter(Boolean);
+  if (!parts.length) { addr.chiTiet = noiThuongTru; addr.full = noiThuongTru; return addr; }
+
+  const norm = (s) => String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/^(tinh|thanh pho|tp|xa|phuong|thi tran|huyen|quan|x\\.|p\\.|h\\.)\\s+/, '')
+    .replace(/[^a-z0-9\\s]/g, ' ').replace(/\\s+/g, ' ').trim();
+
+  try {
+    const provinces = await loadProvinces();
+    let matchedProvince = null;
+    let provinceIdx = -1;
+
+    // Tìm từ cuối ngược lên: tỉnh thường ở segment cuối
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const nq = norm(parts[i]);
+      if (!nq) continue;
+      const m = provinces.find(p => {
+        const np = norm(p.name);
+        return np === nq || np.includes(nq) || nq.includes(np);
+      });
+      if (m) { matchedProvince = m; provinceIdx = i; break; }
+    }
+
+    if (matchedProvince) {
+      addr.provinceCode = matchedProvince.code;
+      addr.provinceName = matchedProvince.name;
+
+      // Segment trước provinceIdx = ứng viên xã
+      if (provinceIdx > 0) {
+        const wards = await loadWards(matchedProvince.code);
+        const nWardQuery = norm(parts[provinceIdx - 1]);
+        const matchedWard = wards.find(w => {
+          const nw = norm(w.name);
+          return nw === nWardQuery || nw.includes(nWardQuery) || nWardQuery.includes(nw);
+        });
+        if (matchedWard) {
+          addr.wardName = matchedWard.name;
+          // Phần đầu = số nhà / xóm / thôn
+          addr.chiTiet = parts.slice(0, provinceIdx - 1).join(', ');
+        } else {
+          // Không match ward — gộp tất cả phần trước tỉnh vào chiTiet để user dễ pick xã
+          addr.chiTiet = parts.slice(0, provinceIdx).join(', ');
+          if (window.toast) window.toast('Không tìm thấy xã "' + parts[provinceIdx - 1] + '" trong ' + matchedProvince.name + '. Vui lòng chọn xã thủ công.', 'warn');
+        }
+      } else {
+        // QR chỉ có tỉnh
+        addr.chiTiet = '';
+      }
+    } else {
+      // Không match được tỉnh → giữ nguyên text gốc, user tự chọn
+      addr.chiTiet = noiThuongTru;
+      if (window.toast) window.toast('Không nhận diện được tỉnh/thành từ QR. Vui lòng chọn thủ công.', 'warn');
+    }
+  } catch (e) {
+    console.warn('parseNoiThuongTruToAddress failed:', e);
+    addr.chiTiet = noiThuongTru;
+  }
+
+  addr.full = [addr.chiTiet, addr.wardName, addr.provinceName].filter(Boolean).join(', ');
+  return addr;
+}
 
 window.removeThanhVien = function(side, idx) {
   if (!confirm('Xóa thành viên này?')) return;

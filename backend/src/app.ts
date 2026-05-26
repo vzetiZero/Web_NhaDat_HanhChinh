@@ -18,6 +18,8 @@ import { templatesRouter, adminTemplatesRouter } from '@/modules/templates/templ
 import { filesRouter } from '@/modules/files/files.routes';
 import { adminRouter, adminContractsRouter } from '@/modules/admin/admin.routes';
 import { agenciesRouter, adminAgenciesRouter } from '@/modules/agencies/agencies.routes';
+import { publicSettingsRouter, adminSettingsRouter } from '@/modules/settings/settings.routes';
+import { adminNotificationsRouter } from '@/modules/notifications/notifications.routes';
 import { frontendRouter } from '@/frontend/frontend.routes';
 
 export function createApp(): Express {
@@ -78,6 +80,7 @@ export function createApp(): Express {
   app.use('/api/templates', templatesRouter);
   app.use('/api/files', filesRouter);
   app.use('/api/agencies', agenciesRouter);
+  app.use('/api/settings', publicSettingsRouter);
 
   // Admin
   app.use('/api/admin/auth', adminAuthRouter);
@@ -85,6 +88,8 @@ export function createApp(): Express {
   app.use('/api/admin/contracts', adminContractsRouter);
   app.use('/api/admin/templates', adminTemplatesRouter);
   app.use('/api/admin/agencies', adminAgenciesRouter);
+  app.use('/api/admin/settings', adminSettingsRouter);
+  app.use('/api/admin/notifications', adminNotificationsRouter);
   app.use('/api/admin', adminRouter);
 
   // 404 + error handler (luôn đặt cuối cùng)

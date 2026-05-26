@@ -21,7 +21,16 @@ async function main() {
   // 1. Admin bootstrap
   const existing = await prisma.user.findUnique({ where: { email: adminEmail.toLowerCase() } });
   if (existing) {
-    console.log(`✓ Admin already exists: ${adminEmail}`);
+    // Đảm bảo admin luôn approved (sau migration enum, có thể đang ở pending nếu tạo mới)
+    if (existing.status !== 'approved' || !existing.isAdmin) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { status: 'approved', isAdmin: true },
+      });
+      console.log(`✓ Admin ${adminEmail} forced to approved/admin`);
+    } else {
+      console.log(`✓ Admin already exists: ${adminEmail}`);
+    }
   } else {
     const passwordHash = await argon2.hash(adminPassword, { type: argon2.argon2id });
     await prisma.user.create({
@@ -30,10 +39,28 @@ async function main() {
         passwordHash,
         fullName: 'Administrator',
         isAdmin: true,
+        status: 'approved',
+        approvedAt: new Date(),
       },
     });
     console.log(`✓ Created admin: ${adminEmail}`);
     console.log(`  → password: ${adminPassword} (đổi ngay sau khi đăng nhập)`);
+  }
+
+  // 1b. Đảm bảo SiteSettings row tồn tại (id=1)
+  const sFound = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  if (!sFound) {
+    await prisma.siteSettings.create({
+      data: {
+        id: 1,
+        siteName: process.env.SITE_NAME || 'Chứng Từ Nhà Đất',
+        pendingUserMessage:
+          'Tài khoản của bạn đã được tạo và đang chờ quản trị viên duyệt. Vui lòng liên hệ admin để được hỗ trợ.',
+        rejectedUserMessage:
+          'Tài khoản của bạn chưa được phê duyệt. Vui lòng liên hệ admin để biết thêm chi tiết.',
+      },
+    });
+    console.log('✓ Created default site settings row');
   }
 
   // 2. Default template record

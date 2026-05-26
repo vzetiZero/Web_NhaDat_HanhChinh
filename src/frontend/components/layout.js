@@ -29,6 +29,7 @@ export function renderPageShell(env, {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${escHtml(title)} - ${escHtml(siteName)}</title>
 <meta name="description" content="${escHtml(cfg.SITE_DESC)}" />
+<link rel="icon" id="dynamic-favicon" href="/favicon.svg" type="image/svg+xml" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
@@ -46,16 +47,28 @@ export function renderPageShell(env, {
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 <style>
+  html, body { max-width: 100%; overflow-x: hidden; }
   body { font-family: "Be Vietnam Pro", ui-sans-serif, system-ui; background: #f8fafc; color: #0f172a; }
-  .btn-primary { background:#1e40af; color:#fff; padding:0.625rem 1.25rem; border-radius:0.5rem; font-weight:500; }
+  /* Touch target tối thiểu 44px theo Apple HIG & WCAG */
+  .btn-primary {
+    background:#1e40af; color:#fff; padding:0.75rem 1.25rem; border-radius:0.5rem; font-weight:500;
+    min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background .15s;
+  }
   .btn-primary:hover { background:#172554; }
-  .btn-secondary { background:#fff; border:1px solid #cbd5e1; color:#334155; padding:0.625rem 1.25rem; border-radius:0.5rem; font-weight:500; }
+  .btn-primary:disabled { background:#94a3b8; cursor:not-allowed; }
+  .btn-secondary {
+    background:#fff; border:1px solid #cbd5e1; color:#334155; padding:0.75rem 1.25rem; border-radius:0.5rem; font-weight:500;
+    min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background .15s;
+  }
   .btn-secondary:hover { background:#f1f5f9; }
   .form-label { display:block; font-size:0.875rem; font-weight:500; color:#334155; margin-bottom:0.25rem; }
   .form-label .req { color:#dc2626; margin-left:2px; }
   .form-input, .form-select, .form-textarea {
-    width:100%; padding:0.5rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.5rem;
-    background:#fff; font-size:0.9375rem; outline:none; transition: border-color .15s;
+    width:100%; padding:0.625rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.5rem;
+    background:#fff; font-size:1rem; line-height: 1.4; outline:none; transition: border-color .15s;
+    min-height: 44px; box-sizing: border-box;
   }
   .form-input:focus, .form-select:focus, .form-textarea:focus { border-color:#1e40af; box-shadow:0 0 0 3px rgba(30,64,175,0.1); }
   .form-error {
@@ -146,7 +159,7 @@ export function renderPageShell(env, {
 
 ${hideHeader ? '' : renderHeader(siteName, requireAuth)}
 
-<main class="min-h-[calc(100vh-180px)]">
+<main class="min-h-[calc(100dvh-180px)]">
 ${bodyHtml}
 </main>
 
@@ -172,8 +185,8 @@ function renderHeader(siteName, requireAuth) {
 <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
   <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
     <a href="/" class="flex items-center gap-2 text-primary-500 font-bold text-lg">
-      <i data-lucide="building-2" class="w-6 h-6"></i>
-      <span>${escHtml(siteName)}</span>
+      <span data-site-logo><i data-lucide="building-2" class="w-6 h-6"></i></span>
+      <span data-site-name>${escHtml(siteName)}</span>
     </a>
     <nav class="hidden md:flex items-center gap-6 text-sm">
       <a href="/" class="hover:text-primary-500">Trang chủ</a>
@@ -189,8 +202,9 @@ function renderFooter(siteName) {
   return `
 <footer class="bg-white border-t border-slate-200 mt-8">
   <div class="max-w-7xl mx-auto px-4 py-6 text-center text-sm text-slate-500">
-    © ${new Date().getFullYear()} ${escHtml(siteName)} - Hệ thống tạo chứng từ nhà đất.
+    © ${new Date().getFullYear()} <span data-site-name>${escHtml(siteName)}</span> - Hệ thống tạo chứng từ nhà đất.
     <div class="mt-1 text-xs">Tuân thủ Luật Bảo vệ dữ liệu cá nhân (Nghị định 13/2023).</div>
+    <div id="footer-contact"></div>
   </div>
 </footer>`;
 }
@@ -325,6 +339,103 @@ window.logout = async function() {
   localStorage.removeItem('ctnd_user');
   location.href = '/';
 };
+
+// ============ Public site settings — fetch 1 lần, cache localStorage 5 phút ============
+window.loadPublicSettings = async function(forceRefresh) {
+  const CACHE_KEY = 'ctnd_public_settings';
+  const TTL_MS = 5 * 60 * 1000;
+  if (!forceRefresh) {
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (cached && (Date.now() - cached.ts) < TTL_MS) return cached.data;
+    } catch {}
+  }
+  try {
+    const res = await fetch(window.API_BASE + '/api/settings/public');
+    const j = await res.json();
+    const data = j.settings || {};
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+    return data;
+  } catch {
+    return {};
+  }
+};
+
+// Áp settings vào DOM: title, favicon, brand name trong header, contact buttons trong footer
+window.applyPublicSettings = function(s) {
+  if (!s) return;
+  // Favicon
+  if (s.faviconUrl) {
+    const link = document.getElementById('dynamic-favicon');
+    if (link) link.href = s.faviconUrl;
+  }
+  // Site name trong header
+  if (s.siteName) {
+    document.querySelectorAll('[data-site-name]').forEach(el => { el.textContent = s.siteName; });
+  }
+  // Logo trong header
+  if (s.siteLogoUrl) {
+    document.querySelectorAll('[data-site-logo]').forEach(el => {
+      el.innerHTML = '<img src="' + s.siteLogoUrl + '" alt="logo" class="w-7 h-7 object-contain" />';
+    });
+  }
+  // Footer contact (nếu trang có placeholder)
+  const footerContact = document.getElementById('footer-contact');
+  if (footerContact && hasAnyContact(s)) {
+    const links = [];
+    if (s.adminPhone) links.push('<a href="tel:' + s.adminPhone + '" class="hover:text-primary-500"><i data-lucide="phone" class="w-3 h-3 inline"></i> ' + s.adminPhone + '</a>');
+    if (s.adminZaloUrl) links.push('<a href="' + s.adminZaloUrl + '" target="_blank" rel="noopener" class="hover:text-primary-500"><i data-lucide="message-circle" class="w-3 h-3 inline"></i> Zalo</a>');
+    if (s.adminFacebookUrl) links.push('<a href="' + s.adminFacebookUrl + '" target="_blank" rel="noopener" class="hover:text-primary-500"><i data-lucide="facebook" class="w-3 h-3 inline"></i> Facebook</a>');
+    if (s.adminEmail) links.push('<a href="mailto:' + s.adminEmail + '" class="hover:text-primary-500"><i data-lucide="mail" class="w-3 h-3 inline"></i> ' + s.adminEmail + '</a>');
+    footerContact.innerHTML = '<div class="flex flex-wrap items-center justify-center gap-3 mt-2 text-xs text-slate-500">' + links.join('<span class="text-slate-300">•</span>') + '</div>';
+    if (window.lucide) window.lucide.createIcons();
+  }
+  // Welcome modal (chỉ hiện 1 lần mỗi 24h nếu enabled)
+  if (s.modal && s.modal.enabled && s.modal.title) {
+    const lastShown = Number(localStorage.getItem('ctnd_modal_last') || 0);
+    if (Date.now() - lastShown > 24 * 60 * 60 * 1000) {
+      window.showSiteModal(s.modal);
+    }
+  }
+};
+
+window.showSiteModal = function(m) {
+  if (document.getElementById('site-modal')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'site-modal';
+  overlay.className = 'fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4';
+  overlay.innerHTML = '<div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-5 sm:p-6">' +
+    '<h3 class="text-lg font-semibold mb-2">' + escapeText(m.title || '') + '</h3>' +
+    (m.content ? '<p class="text-sm text-slate-600 whitespace-pre-wrap mb-4">' + escapeText(m.content) + '</p>' : '') +
+    '<div class="flex justify-end gap-2 mt-3">' +
+      '<button data-site-modal-close class="btn-secondary text-sm">Đóng</button>' +
+      (m.buttonUrl && m.buttonText ? '<a href="' + m.buttonUrl + '" target="_blank" rel="noopener" class="btn-primary text-sm">' + escapeText(m.buttonText) + '</a>' : '') +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.matches('[data-site-modal-close]')) {
+      try { localStorage.setItem('ctnd_modal_last', String(Date.now())); } catch {}
+      overlay.remove();
+    }
+  });
+};
+
+function hasAnyContact(s) {
+  return !!(s.adminPhone || s.adminZaloUrl || s.adminFacebookUrl || s.adminTelegramUrl || s.adminEmail);
+}
+function escapeText(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Auto-load settings on every page (non-blocking)
+(function autoLoadSettings() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.loadPublicSettings().then(window.applyPublicSettings));
+  } else {
+    window.loadPublicSettings().then(window.applyPublicSettings);
+  }
+})();
 
 // FingerprintJS - lazy load + cache
 window.getFingerprint = async function() {

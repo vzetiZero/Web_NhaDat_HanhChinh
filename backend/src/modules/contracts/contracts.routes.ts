@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { asyncHandler } from '@/middleware/error';
 import { validate } from '@/middleware/validate';
 import { requireAuth, AuthedRequest } from '@/middleware/auth';
+import { requireApproved } from '@/middleware/require-approved';
 import { HttpError } from '@/lib/http-error';
 import { prisma } from '@/lib/prisma';
 import { filesService } from '@/modules/files/files.service';
@@ -19,6 +20,7 @@ export const contractsRouter = Router();
 contractsRouter.get(
   '/',
   requireAuth,
+  requireApproved,
   validate(listContractsQuerySchema, 'query'),
   asyncHandler(async (req: AuthedRequest, res) => {
     const data = await contractsService.listByUser(req.user!.userId, req.query as never);
@@ -29,6 +31,7 @@ contractsRouter.get(
 contractsRouter.post(
   '/',
   requireAuth,
+  requireApproved,
   validate(createContractSchema),
   asyncHandler(async (req: AuthedRequest, res) => {
     const contract = await contractsService.create(req.user!.userId, req.body);
@@ -39,6 +42,7 @@ contractsRouter.post(
 contractsRouter.get(
   '/:id',
   requireAuth,
+  requireApproved,
   asyncHandler(async (req: AuthedRequest, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw HttpError.badRequest('ID không hợp lệ');
@@ -50,6 +54,7 @@ contractsRouter.get(
 contractsRouter.patch(
   '/:id',
   requireAuth,
+  requireApproved,
   validate(updateContractSchema),
   asyncHandler(async (req: AuthedRequest, res) => {
     const id = Number(req.params.id);
@@ -62,6 +67,7 @@ contractsRouter.patch(
 contractsRouter.delete(
   '/:id',
   requireAuth,
+  requireApproved,
   asyncHandler(async (req: AuthedRequest, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw HttpError.badRequest('ID không hợp lệ');
@@ -77,6 +83,7 @@ contractsRouter.delete(
 contractsRouter.post(
   '/:id/generate',
   requireAuth,
+  requireApproved,
   asyncHandler(async (req: AuthedRequest, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw HttpError.badRequest('ID không hợp lệ');
@@ -107,6 +114,7 @@ contractsRouter.post(
 contractsRouter.get(
   '/:id/files',
   requireAuth,
+  requireApproved,
   asyncHandler(async (req: AuthedRequest, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw HttpError.badRequest('ID không hợp lệ');

@@ -18,9 +18,10 @@ datasource db {
 // =========================================
 
 enum UserStatus {
-  active
-  suspended
-  deleted
+  pending
+  approved
+  rejected
+  blocked
 }
 
 model User {
@@ -32,7 +33,11 @@ model User {
   phone           String?
   cccdEncrypted   String?   @map("cccd_encrypted")
   isAdmin         Boolean   @default(false) @map("is_admin")
-  status          UserStatus @default(active)
+  status          UserStatus @default(pending)
+  registerNote    String?   @map("register_note")     // Ghi chú user gửi khi đăng ký
+  rejectReason    String?   @map("reject_reason")
+  approvedAt      DateTime? @map("approved_at")
+  approvedById    Int?      @map("approved_by_id")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   lastLoginAt     DateTime? @map("last_login_at")
@@ -43,9 +48,13 @@ model User {
   agencyHistory   UserAgencyHistory[]
   agencySuggestions UserAgencySuggestion[]
   generatedFiles  GeneratedFile[]
+  approvedBy      User?     @relation("UserApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedUsers   User[]    @relation("UserApprovedBy")
+  notificationsTargeting AdminNotification[] @relation("NotifTargetUser")
 
   @@index([email])
   @@index([isAdmin])
+  @@index([status])
   @@map("users")
 }
 
@@ -392,4 +401,60 @@ model UserAgencySuggestion {
   @@index([adminStatus])
   @@index([normalizedInput])
   @@map("user_agency_suggestions")
+}
+
+// =========================================
+// Site Settings (singleton - dùng id=1)
+// =========================================
+
+model SiteSettings {
+  id                    Int      @id @default(autoincrement())
+  siteName              String   @default("Chứng Từ Nhà Đất") @map("site_name")
+  siteLogoUrl           String?  @map("site_logo_url")
+  faviconUrl            String?  @map("favicon_url")
+  adminPhone            String?  @map("admin_phone")
+  adminZaloUrl          String?  @map("admin_zalo_url")
+  adminFacebookUrl      String?  @map("admin_facebook_url")
+  adminTelegramUrl      String?  @map("admin_telegram_url")
+  adminEmail            String?  @map("admin_email")
+  supportNoticeTitle    String?  @map("support_notice_title")
+  supportNoticeContent  String?  @map("support_notice_content")
+  pendingUserMessage    String?  @map("pending_user_message")
+  rejectedUserMessage   String?  @map("rejected_user_message")
+  modalEnabled          Boolean  @default(false) @map("modal_enabled")
+  modalTitle            String?  @map("modal_title")
+  modalContent          String?  @map("modal_content")
+  modalButtonText       String?  @map("modal_button_text")
+  modalButtonUrl        String?  @map("modal_button_url")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// =========================================
+// Admin Notifications (bell badge)
+// =========================================
+
+enum AdminNotificationType {
+  user_registered
+  agency_suggested
+  contract_created
+  other
+}
+
+model AdminNotification {
+  id            Int                   @id @default(autoincrement())
+  type          AdminNotificationType
+  title         String
+  content       String?
+  targetUserId  Int?                  @map("target_user_id")
+  isRead        Boolean               @default(false) @map("is_read")
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  targetUser    User?                 @relation("NotifTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([isRead, createdAt])
+  @@index([type])
+  @@map("admin_notifications")
 }

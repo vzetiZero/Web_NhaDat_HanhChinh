@@ -1,5 +1,7 @@
 // Auth service - business logic
 // Login/register có device binding (1 user = 1 device cho non-admin)
+// Register: tạo user status=pending, KHÔNG cấp token. Admin phải duyệt.
+// Login: chỉ status=approved mới được token; pending/rejected/blocked trả 403 kèm status code.
 
 import { prisma } from '@/lib/prisma';
 import { HttpError } from '@/lib/http-error';
@@ -14,7 +16,21 @@ export interface AuthResult {
     email: string;
     full_name: string | null;
     is_admin: boolean;
+    status: string;
   };
+}
+
+export interface RegisterResult {
+  user: {
+    id: number;
+    email: string;
+    full_name: string | null;
+    phone: string | null;
+    status: string;
+    register_note: string | null;
+  };
+  pendingApproval: true;
+  message: string;
 }
 
 export interface RequestContext {
@@ -23,7 +39,7 @@ export interface RequestContext {
 }
 
 class AuthService {
-  async register(input: RegisterInput, ctx: RequestContext = {}): Promise<AuthResult> {
+  async register(input: RegisterInput, ctx: RequestContext = {}): Promise<RegisterResult> {
     const existing = await prisma.user.findUnique({ where: { email: input.email } });
     if (existing) throw HttpError.conflict('Email đã được sử dụng');
 
@@ -35,10 +51,12 @@ class AuthService {
         passwordHash,
         fullName: input.full_name || null,
         phone: input.phone || null,
+        registerNote: input.register_note || null,
+        status: 'pending',
       },
     });
 
-    // Gắn device đầu tiên
+    // Gắn device đầu tiên (vẫn lưu fingerprint, để khi approve user login lại từ thiết bị này)
     await prisma.device.create({
       data: {
         userId: user.id,
@@ -51,27 +69,35 @@ class AuthService {
     await prisma.auditLog.create({
       data: {
         userId: user.id,
-        event: 'register',
+        event: 'USER_REGISTERED',
         ipAddress: ctx.ip || null,
         userAgent: ctx.userAgent || null,
         deviceFingerprint: input.fingerprint,
+        detail: { fullName: user.fullName, phone: user.phone, registerNote: user.registerNote },
       },
     });
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+    // Thông báo admin
+    await prisma.adminNotification.create({
+      data: {
+        type: 'user_registered',
+        title: 'Tài khoản mới chờ duyệt',
+        content: `${user.fullName || user.email} đã đăng ký, đang chờ phê duyệt.`,
+        targetUserId: user.id,
+      },
     });
 
-    const token = await signToken({ userId: user.id, isAdmin: user.isAdmin });
     return {
-      token,
       user: {
         id: user.id,
         email: user.email,
         full_name: user.fullName,
-        is_admin: user.isAdmin,
+        phone: user.phone,
+        status: user.status,
+        register_note: user.registerNote,
       },
+      pendingApproval: true,
+      message: 'Đăng ký thành công. Tài khoản đang chờ quản trị viên duyệt.',
     };
   }
 
@@ -82,10 +108,8 @@ class AuthService {
     });
 
     if (!user) throw HttpError.unauthorized('Email hoặc mật khẩu không đúng');
-    if (user.status !== 'active') {
-      throw HttpError.forbidden('Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.');
-    }
 
+    // Verify mật khẩu TRƯỚC khi tiết lộ trạng thái → tránh user enumeration
     const ok = await verifyPassword(user.passwordHash, input.password);
     if (!ok) {
       await prisma.auditLog.create({
@@ -97,6 +121,37 @@ class AuthService {
         },
       });
       throw HttpError.unauthorized('Email hoặc mật khẩu không đúng');
+    }
+
+    // Sau khi xác thực mật khẩu → kiểm tra status
+    if (user.status === 'pending') {
+      throw new HttpError(403, 'ACCOUNT_PENDING', 'Tài khoản đang chờ quản trị viên duyệt.', {
+        status: user.status,
+        userId: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        phone: user.phone,
+        registerNote: user.registerNote,
+      });
+    }
+    if (user.status === 'rejected') {
+      throw new HttpError(403, 'ACCOUNT_REJECTED', 'Tài khoản chưa được phê duyệt.', {
+        status: user.status,
+        userId: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        rejectReason: user.rejectReason,
+      });
+    }
+    if (user.status === 'blocked') {
+      throw new HttpError(403, 'ACCOUNT_BLOCKED', 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.', {
+        status: user.status,
+        userId: user.id,
+        email: user.email,
+      });
+    }
+    if (user.status !== 'approved') {
+      throw HttpError.forbidden('Trạng thái tài khoản không hợp lệ.');
     }
 
     // Device binding logic - chỉ áp dụng cho non-admin
@@ -175,6 +230,7 @@ class AuthService {
         email: user.email,
         full_name: user.fullName,
         is_admin: user.isAdmin,
+        status: user.status,
       },
     };
   }
@@ -184,7 +240,7 @@ class AuthService {
     if (!user || !user.isAdmin) {
       throw HttpError.unauthorized('Tài khoản admin không tồn tại');
     }
-    if (user.status !== 'active') throw HttpError.forbidden('Tài khoản bị khóa');
+    if (user.status !== 'approved') throw HttpError.forbidden('Tài khoản admin chưa được kích hoạt');
 
     const ok = await verifyPassword(user.passwordHash, password);
     if (!ok) {
@@ -207,6 +263,7 @@ class AuthService {
         email: user.email,
         full_name: user.fullName,
         is_admin: true,
+        status: user.status,
       },
     };
   }

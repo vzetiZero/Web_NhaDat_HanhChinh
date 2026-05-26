@@ -23,6 +23,7 @@ import * as adminTemplatesApi from './api/admin-templates.js';
 import { renderHomePage } from '../frontend/pages/home.js';
 import { renderLoginPage } from '../frontend/pages/login.js';
 import { renderRegisterPage } from '../frontend/pages/register.js';
+import { renderAccountStatusPage } from '../frontend/pages/account-status.js';
 import { renderDashboardPage } from '../frontend/pages/dashboard.js';
 import { renderContractNewPage } from '../frontend/pages/contract-new.js';
 import { renderContractDetailPage } from '../frontend/pages/contract-detail.js';
@@ -108,6 +109,9 @@ export async function handleRequest(request, env, ctx) {
     }
     if (pathname === '/dang-ky') {
       return htmlResponse(renderRegisterPage(env));
+    }
+    if (pathname === '/tai-khoan-cho-duyet') {
+      return htmlResponse(renderAccountStatusPage(env));
     }
     if (pathname === '/bang-dieu-khien') {
       return htmlResponse(renderDashboardPage(env));

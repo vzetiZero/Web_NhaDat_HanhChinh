@@ -29,6 +29,7 @@ export const registerSchema = z.object({
     .regex(/^(\+84|0)[1-9][0-9]{8,9}$/, 'SĐT Việt Nam không hợp lệ')
     .optional()
     .or(z.literal('')),
+  register_note: z.string().max(1000).optional().or(z.literal('')),
   fingerprint: fingerprintSchema,
 });
 

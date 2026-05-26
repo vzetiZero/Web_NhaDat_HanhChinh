@@ -96,6 +96,9 @@ export function renderAdminLayout(env) {
       <a data-route="audit" href="#/audit" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
         <i data-lucide="scroll-text" class="w-4 h-4"></i> Nhật ký
       </a>
+      <a data-route="settings" href="#/settings" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
+        <i data-lucide="settings" class="w-4 h-4"></i> Cấu hình
+      </a>
     </nav>
     <div class="p-3 border-t border-slate-700">
       <div id="user-info" class="text-xs text-slate-400 mb-2 truncate"></div>

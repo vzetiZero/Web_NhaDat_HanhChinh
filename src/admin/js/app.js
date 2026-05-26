@@ -7,6 +7,7 @@ import { usersPageJs } from './pages/users.js';
 import { templatesPageJs } from './pages/templates.js';
 import { auditPageJs } from './pages/audit.js';
 import { agenciesPageJs } from './pages/agencies.js';
+import { settingsPageJs } from './pages/settings.js';
 
 export function getAdminAppScript() {
   return `
@@ -166,10 +167,14 @@ const routes = {
   templates: { title: 'Mẫu hợp đồng', render: () => window.adminPageTemplates() },
   agencies: { title: 'Cơ quan cấp GCN', render: () => window.adminPageAgencies() },
   audit: { title: 'Nhật ký', render: () => window.adminPageAudit() },
+  settings: { title: 'Cấu hình', render: () => window.adminPageSettings() },
 };
 
 function navigate() {
-  const hash = location.hash.replace(/^#\\//, '') || 'dashboard';
+  // Hash có thể có query: #/users?status=pending → tách ra để match route
+  let hash = location.hash.replace(/^#\\//, '') || 'dashboard';
+  const qIdx = hash.indexOf('?');
+  if (qIdx >= 0) hash = hash.slice(0, qIdx);
   const route = routes[hash] || routes.dashboard;
   state.currentRoute = hash;
   $$('.nav-item').forEach(el => {
@@ -189,6 +194,7 @@ ${usersPageJs()}
 ${templatesPageJs()}
 ${agenciesPageJs()}
 ${auditPageJs()}
+${settingsPageJs()}
 
 // ============ Boot ============
 document.addEventListener('DOMContentLoaded', () => {

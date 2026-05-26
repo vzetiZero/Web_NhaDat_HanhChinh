@@ -93,6 +93,14 @@ router.get(
 );
 
 router.get(
+  '/tai-khoan-cho-duyet',
+  page(async () => {
+    const mod = await importRootModule('src/frontend/pages/account-status.js');
+    return mod.renderAccountStatusPage(frontendEnv());
+  })
+);
+
+router.get(
   '/bang-dieu-khien',
   page(async () => {
     const mod = await importRootModule('src/frontend/pages/dashboard.js');

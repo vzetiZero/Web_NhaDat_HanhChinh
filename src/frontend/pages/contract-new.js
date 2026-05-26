@@ -118,6 +118,7 @@ const initialForm = () => ({
   benB: { chuHo: emptyPerson(), thanhVien: [] },
   thuaDat: {
     soGCN: '', soVaoSoCapGCN: '', coQuanCapGCN: '',
+    coQuanCapGCNProvinceCode: '', coQuanCapGCNProvinceName: '', coQuanCapGCNOldDistrict: '',
     ngayCapGCN: '', ngayCapGCNISO: '',
     thuaDatSo: '', toBanDoSo: '',
     // Địa chỉ thửa đất hỗ trợ "theo GCN cũ" và "mới sau sáp nhập"
@@ -534,6 +535,25 @@ function noiCapCCCDInput(person, pathPrefix) {
   \`;
 }
 
+function coQuanCapGCNInput(t) {
+  return \`
+    <div class="space-y-2" data-gcn-agency-root>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <select class="form-select" id="gcn-agency-province">
+          <option value="">-- Chọn tỉnh/thành cấp GCN --</option>
+        </select>
+        <input type="text" class="form-input" id="gcn-agency-old-district"
+          value="\${esc(t.coQuanCapGCNOldDistrict || '')}"
+          placeholder="Huyện/quận cũ nếu có, VD: Huyện Cao Lãnh" />
+      </div>
+      <input type="text" data-bind="thuaDat.coQuanCapGCN" data-required class="form-input"
+        value="\${esc(t.coQuanCapGCN)}"
+        placeholder="Chọn gợi ý bên dưới hoặc tự nhập chính xác theo GCN" />
+      <div class="flex flex-wrap gap-2" id="gcn-agency-suggestions"></div>
+    </div>
+  \`;
+}
+
 // ============ Render person form ============
 function renderPersonForm(person, pathPrefix, title, isChuHo = false) {
   const idx = pathPrefix.includes('[') ? parseInt(pathPrefix.split('[')[1].split(']')[0], 10) : -1;
@@ -674,7 +694,7 @@ function renderStepThuaDat() {
           inputHtml: \`<input type="text" data-bind="thuaDat.soVaoSoCapGCN" data-required class="form-input" value="\${esc(t.soVaoSoCapGCN)}" placeholder="CN10253" />\` })}
         <div class="md:col-span-2">
           \${field({ label: 'Cơ quan cấp GCN', required: true, hint: HINTS.coQuanCapGCN, errorId: 'err_coQuan',
-            inputHtml: \`<input type="text" data-bind="thuaDat.coQuanCapGCN" data-required class="form-input" value="\${esc(t.coQuanCapGCN)}" placeholder="CHI NHÁNH VPĐK ĐẤT ĐAI HUYỆN CAO LÃNH TỈNH ĐỒNG THÁP" />\` })}
+            inputHtml: coQuanCapGCNInput(t) })}
         </div>
         \${field({ label: 'Ngày cấp GCN', required: true, hint: HINTS.ngayCapGCN, errorId: 'err_ngayCapGCN',
           inputHtml: dateInput({ bindPath: 'thuaDat.ngayCapGCN', value: t.ngayCapGCN || isoToVN(t.ngayCapGCNISO), required: true, min: '1990-01-01', max: today }) })}
@@ -1002,6 +1022,7 @@ function bindStepHandlers() {
   if (currentStep === 3) {
     updateGiaTriChu();
     updateDienTichChu();
+    bindCoQuanCapGCN();
     bindStepThuaDatAddress();
   }
 
@@ -1041,6 +1062,85 @@ function bindStepHandlers() {
   }
 
   if (currentStep === 5) renderPreviewSummary();
+}
+
+async function bindCoQuanCapGCN() {
+  const root = document.querySelector('[data-gcn-agency-root]');
+  if (!root) return;
+  const provinceEl = document.getElementById('gcn-agency-province');
+  const oldDistrictEl = document.getElementById('gcn-agency-old-district');
+  const agencyEl = root.querySelector('[data-bind="thuaDat.coQuanCapGCN"]');
+  const suggestEl = document.getElementById('gcn-agency-suggestions');
+  const provinces = await loadProvinces();
+  if (form.thuaDat.coQuanCapGCNProvinceCode && !form.thuaDat.coQuanCapGCNProvinceName) {
+    const found = provinces.find(p => p.code === form.thuaDat.coQuanCapGCNProvinceCode);
+    form.thuaDat.coQuanCapGCNProvinceName = found?.name || '';
+  }
+
+  provinceEl.innerHTML = '<option value="">-- Chọn tỉnh/thành cấp GCN --</option>' +
+    provinces.map(p => \`<option value="\${esc(p.code)}" \${form.thuaDat.coQuanCapGCNProvinceCode === p.code ? 'selected' : ''}>\${esc(p.name)}</option>\`).join('');
+
+  function upperVN(value) {
+    return String(value || '').trim().toLocaleUpperCase('vi-VN');
+  }
+
+  function normalizeProvinceName(name) {
+    return upperVN(name).replace(/^TỈNH\\s+/i, 'TỈNH ').replace(/^THÀNH PHỐ\\s+/i, 'THÀNH PHỐ ');
+  }
+
+  function buildAgencySuggestions() {
+    const provinceName = form.thuaDat.coQuanCapGCNProvinceName || '';
+    const provinceText = normalizeProvinceName(provinceName);
+    const oldDistrict = upperVN(form.thuaDat.coQuanCapGCNOldDistrict);
+    const items = [];
+    if (provinceText) {
+      items.push('SỞ NÔNG NGHIỆP VÀ MÔI TRƯỜNG ' + provinceText);
+      items.push('SỞ TÀI NGUYÊN VÀ MÔI TRƯỜNG ' + provinceText);
+      items.push('VĂN PHÒNG ĐĂNG KÝ ĐẤT ĐAI ' + provinceText);
+      items.push('ỦY BAN NHÂN DÂN ' + provinceText);
+      if (oldDistrict) {
+        items.unshift('CHI NHÁNH VĂN PHÒNG ĐĂNG KÝ ĐẤT ĐAI ' + oldDistrict + ' ' + provinceText);
+        items.push('ỦY BAN NHÂN DÂN ' + oldDistrict);
+      }
+    }
+    return [...new Set(items)];
+  }
+
+  function renderAgencySuggestions() {
+    const items = buildAgencySuggestions();
+    if (!items.length) {
+      suggestEl.innerHTML = '<span class="text-xs text-slate-500">Chọn tỉnh/thành để hiện gợi ý cơ quan cấp.</span>';
+      return;
+    }
+    suggestEl.innerHTML = items.map(name =>
+      \`<button type="button" class="px-2.5 py-1.5 rounded border border-slate-200 bg-white hover:bg-blue-50 hover:border-primary-500 text-xs text-slate-700 text-left" data-gcn-agency="\${esc(name)}">\${esc(name)}</button>\`
+    ).join('');
+    suggestEl.querySelectorAll('[data-gcn-agency]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        form.thuaDat.coQuanCapGCN = btn.dataset.gcnAgency;
+        agencyEl.value = form.thuaDat.coQuanCapGCN;
+        saveDraft();
+        hideError('err_coQuan');
+        agencyEl.classList.remove('invalid');
+      });
+    });
+  }
+
+  provinceEl.addEventListener('change', () => {
+    const found = provinces.find(p => p.code === provinceEl.value);
+    form.thuaDat.coQuanCapGCNProvinceCode = found?.code || '';
+    form.thuaDat.coQuanCapGCNProvinceName = found?.name || '';
+    saveDraft();
+    renderAgencySuggestions();
+  });
+
+  oldDistrictEl.addEventListener('input', () => {
+    form.thuaDat.coQuanCapGCNOldDistrict = oldDistrictEl.value;
+    saveDraft();
+    renderAgencySuggestions();
+  });
+
+  renderAgencySuggestions();
 }
 
 // ============ Special: địa chỉ thửa đất với toggle + suggest ============

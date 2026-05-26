@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "start": "wrangler dev",
+    "start": "wrangler deploy --compatibility-flags nodejs_compat",
     "db:init": "wrangler d1 execute DB --local --file=./scripts/init.sql",
     "db:init:remote": "wrangler d1 execute DB --remote --file=./scripts/init.sql",
     "tail": "wrangler tail"
@@ -20,3 +20,4 @@
     "@cloudflare/puppeteer": "^1.0.4"
   }
 }
+

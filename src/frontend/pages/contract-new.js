@@ -1012,6 +1012,17 @@ function bindStepHandlers() {
     });
   });
 
+  // Money inputs: format "100,000" live as user types
+  document.querySelectorAll('[data-money]').forEach(el => {
+    const path = el.dataset.money;
+    el.addEventListener('input', () => {
+      formatMoneyInput(el);
+      saveDraft();
+      if (path === 'thuaDat.giaTri') updateGiaTriChu();
+    });
+    el.addEventListener('focus', () => el.select());
+  });
+
   // Bind address pickers
   document.querySelectorAll('[data-addr-root]').forEach(rootEl => {
     const path = rootEl.dataset.addrRoot;
@@ -1184,11 +1195,15 @@ function bindStepThuaDatAddress() {
           return;
         }
         suggestEl.innerHTML = '<div class="ac-dropdown">' +
-          '<div class="ac-loading">✨ Gợi ý địa chỉ mới (click để áp dụng):</div>' +
+          '<div class="ac-loading" style="font-weight:600;color:#1e40af;background:#eff6ff">✨ Gợi ý địa chỉ mới sau sáp nhập (👆 click vào để áp dụng):</div>' +
           items.map((it, i) => \`
-            <div class="ac-item" data-i="\${i}">
-              <div><b>\${esc(it.ward)}</b></div>
-              <div class="sub">tỉnh \${esc(it.province)}</div>
+            <div class="ac-item" data-i="\${i}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">
+              <span style="color:#1e40af;font-weight:600">→</span>
+              <div style="flex:1">
+                <div><b>\${esc(it.ward)}</b></div>
+                <div class="sub">tỉnh \${esc(it.province)}</div>
+              </div>
+              <span style="color:#16a34a;font-size:11px;background:#dcfce7;padding:2px 6px;border-radius:4px">Click chọn</span>
             </div>\`).join('') + '</div>';
         suggestEl.querySelectorAll('.ac-item').forEach((el) => {
           el.addEventListener('click', () => {
@@ -1220,12 +1235,17 @@ function bindStepThuaDatAddress() {
     saveDraft();
   });
 
-  // Click outside to close suggest dropdown
-  document.addEventListener('click', (e) => {
-    if (!suggestEl.contains(e.target) && e.target !== gcnInput) {
-      suggestEl.innerHTML = '';
-    }
-  });
+  // Click outside to close suggest dropdown - chỉ register 1 lần dù step render nhiều lần
+  if (!window._docClickAddrBound) {
+    window._docClickAddrBound = true;
+    document.addEventListener('click', (e) => {
+      const sEl = document.getElementById('diaChiGcnSuggest');
+      const inp = document.getElementById('diaChiGcnText');
+      if (sEl && !sEl.contains(e.target) && e.target !== inp) {
+        sEl.innerHTML = '';
+      }
+    });
+  }
 }
 
 function updateGiaTriChu() {
@@ -1245,7 +1265,7 @@ function updateDienTichChu() {
   const n = Number(v);
   if (!n) {
     if (el) el.textContent = '';
-    if (dtChuEl && !window._userEditedDtChu) {
+    if (dtChuEl) {
       dtChuEl.value = '';
       form.thuaDat.dienTichBangChu = '';
     }
@@ -1253,8 +1273,8 @@ function updateDienTichChu() {
   }
   const chu = areaToVN(v);
   if (el) el.innerHTML = '📏 Bằng chữ: <b>' + esc(chu) + '</b>';
-  // Overwrite trừ khi user manually đã sửa ô dienTichBangChu
-  if (dtChuEl && !window._userEditedDtChu) {
+  // Luôn overwrite - user có thể sửa ô bằng chữ sau cùng nếu muốn custom
+  if (dtChuEl) {
     dtChuEl.value = chu;
     form.thuaDat.dienTichBangChu = chu;
   }

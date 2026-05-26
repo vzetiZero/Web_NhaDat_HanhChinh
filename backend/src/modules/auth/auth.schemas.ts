@@ -2,12 +2,21 @@
 
 import { z } from 'zod';
 
+// Email validator nhẹ hơn z.email() - cho phép local hostname (admin@local, admin@localhost)
+// Chỉ check format "user@host", không bắt buộc TLD. Production-safe vì auth thật check qua DB.
+const emailFlex = z
+  .string()
+  .min(3, 'Email quá ngắn')
+  .max(254, 'Email quá dài')
+  .regex(/^[^\s@]+@[^\s@]+$/, 'Email phải có dạng user@host')
+  .transform((s) => s.toLowerCase().trim());
+
 const fingerprintSchema = z
   .string()
   .regex(/^[a-fA-F0-9]{16,128}$/, 'Fingerprint không hợp lệ');
 
 export const registerSchema = z.object({
-  email: z.string().email('Email không hợp lệ').toLowerCase().trim(),
+  email: emailFlex,
   password: z
     .string()
     .min(8, 'Mật khẩu tối thiểu 8 ký tự')
@@ -24,13 +33,13 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email().toLowerCase().trim(),
+  email: emailFlex,
   password: z.string().min(1),
   fingerprint: fingerprintSchema,
 });
 
 export const adminLoginSchema = z.object({
-  email: z.string().email().toLowerCase().trim(),
+  email: emailFlex,
   password: z.string().min(1),
 });
 

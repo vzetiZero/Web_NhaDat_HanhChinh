@@ -17,6 +17,7 @@ import { contractsRouter } from '@/modules/contracts/contracts.routes';
 import { templatesRouter, adminTemplatesRouter } from '@/modules/templates/templates.routes';
 import { filesRouter } from '@/modules/files/files.routes';
 import { adminRouter, adminContractsRouter } from '@/modules/admin/admin.routes';
+import { agenciesRouter, adminAgenciesRouter } from '@/modules/agencies/agencies.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -72,12 +73,14 @@ export function createApp(): Express {
   app.use('/api/contracts', contractsRouter);
   app.use('/api/templates', templatesRouter);
   app.use('/api/files', filesRouter);
+  app.use('/api/agencies', agenciesRouter);
 
   // Admin
   app.use('/api/admin/auth', adminAuthRouter);
   app.use('/api/admin/users', adminUsersRouter);
   app.use('/api/admin/contracts', adminContractsRouter);
   app.use('/api/admin/templates', adminTemplatesRouter);
+  app.use('/api/admin/agencies', adminAgenciesRouter);
   app.use('/api/admin', adminRouter);
 
   // 404 + error handler (luôn đặt cuối cùng)

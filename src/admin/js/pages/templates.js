@@ -61,9 +61,11 @@ async function handleTplUpload(e) {
   e.preventDefault();
   const fd = new FormData(e.target);
   try {
-    const res = await fetch('/admin/api/templates', {
+    // Translate /admin/api/templates → /api/admin/templates và prefix API_BASE
+    const url = (window.adminApiBase || '') + window.adminTranslatePath('/admin/api/templates');
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + adminState.token },
+      headers: { 'Authorization': 'Bearer ' + adminState.token }, // KHÔNG set Content-Type cho FormData
       body: fd,
     });
     const data = await res.json();

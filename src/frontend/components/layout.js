@@ -197,13 +197,43 @@ function renderFooter(siteName) {
 
 function commonJs() {
   return `
+// ============ API BASE URL & PATH TRANSLATION ============
+// Backend Node.js đứng riêng port 3000. CF Workers (dev) phục vụ HTML port 8787.
+// API_BASE có thể override qua localStorage.setItem('ctnd_api_base', 'https://...')
+window.API_BASE = (function() {
+  const stored = localStorage.getItem('ctnd_api_base');
+  if (stored) return stored;
+  // Mặc định: trỏ Node backend ở port 3000 cùng host
+  return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? \`\${location.protocol}//\${location.hostname}:3000\`
+    : ''; // production: giả định same-origin
+})();
+
+// Translate CF Workers paths → Node backend paths
+function translatePath(p) {
+  if (!p) return p;
+  // /admin/api/* → /api/admin/*
+  p = p.replace(/^\\/admin\\/api\\//, '/api/admin/');
+  // /api/admin/dashboard/stats → /api/admin/dashboard
+  p = p.replace(/^\\/api\\/admin\\/dashboard\\/stats(\\?|$)/, '/api/admin/dashboard$1');
+  // /api/admin/audit → /api/admin/audit-logs
+  p = p.replace(/^\\/api\\/admin\\/audit(\\?|$)/, '/api/admin/audit-logs$1');
+  // /api/contracts/:id/render → /api/contracts/:id/generate
+  p = p.replace(/^(\\/api\\/contracts\\/[^/]+)\\/render(\\?|$)/, '$1/generate$2');
+  return p;
+}
+
 window.api = async function(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   const token = localStorage.getItem('ctnd_token');
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const fp = localStorage.getItem('ctnd_fp');
   if (fp) headers['X-Device-Fingerprint'] = fp;
-  const res = await fetch(path, { ...opts, headers });
+
+  const translated = translatePath(path);
+  const url = translated.startsWith('http') ? translated : window.API_BASE + translated;
+
+  const res = await fetch(url, { ...opts, headers });
   let data = null;
   try { data = await res.json(); } catch {}
   if (res.status === 401) {
@@ -221,6 +251,21 @@ window.api = async function(path, opts = {}) {
     throw new Error(data?.message || ('HTTP ' + res.status));
   }
   return data;
+};
+
+/**
+ * Lấy signed URL cho 1 file đã upload lên Supabase Storage rồi mở tab mới tải.
+ * Dùng cho dashboard/contract-detail: thay vì <a href="/api/.../download/docx">
+ * dùng: <button onclick="downloadFile(fileId)">.
+ */
+window.downloadFile = async function(fileId) {
+  if (!fileId) { toast('File chưa được tạo', 'warn'); return; }
+  try {
+    const res = await api('/api/files/' + fileId + '/signed-url');
+    window.open(res.url, '_blank');
+  } catch (e) {
+    toast('Không tải được file: ' + e.message, 'error');
+  }
 };
 
 window.toast = function(msg, type = 'info') {

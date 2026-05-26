@@ -39,20 +39,29 @@ window.adminPageContracts = async function() {
         </tr></thead>
         <tbody>
           \${items.length === 0 ? '<tr><td colspan="5" class="text-center text-slate-500 py-8">Chưa có hợp đồng nào</td></tr>' :
-            items.map(c => \`
+            items.map(c => {
+              // Hỗ trợ cả Node backend (camelCase + relations) và CF legacy (snake_case)
+              const num = c.contractNumber || c.contract_number;
+              const userName = c.user?.fullName || c.user_full_name || '';
+              const userEmail = c.user?.email || c.user_email || '';
+              const createdAt = c.createdAt || c.created_at;
+              const docxFileId = c.docxFile?.id || c.docxFileId;
+              const pdfFileId = c.pdfFile?.id || c.pdfFileId;
+              return \`
             <tr>
-              <td class="font-mono">\${c.contract_number}</td>
+              <td class="font-mono">\${num}</td>
               <td>
-                <div>\${escapeHtml(c.user_full_name || '')}</div>
-                <div class="text-xs text-slate-400">\${escapeHtml(c.user_email || '')}</div>
+                <div>\${escapeHtml(userName)}</div>
+                <div class="text-xs text-slate-400">\${escapeHtml(userEmail)}</div>
               </td>
               <td>\${c.status === 'rendered' ? adminFmt.badge('Đã xuất', 'green') : adminFmt.badge('Nháp', 'amber')}</td>
-              <td>\${adminFmt.date(c.created_at)}</td>
+              <td>\${adminFmt.date(createdAt)}</td>
               <td class="text-right">
-                \${c.docx_r2_key ? \`<a href="/api/contracts/\${c.id}/download/docx" target="_blank" class="text-brand-400 hover:underline text-xs mr-2"><i data-lucide="download" class="w-3 h-3 inline"></i> DOCX</a>\` : ''}
-                \${c.pdf_r2_key ? \`<a href="/api/contracts/\${c.id}/download/pdf" target="_blank" class="text-brand-400 hover:underline text-xs"><i data-lucide="download" class="w-3 h-3 inline"></i> PDF</a>\` : ''}
+                \${docxFileId ? \`<button onclick="adminDownload(\${docxFileId})" class="text-brand-400 hover:underline text-xs mr-2 cursor-pointer"><i data-lucide="download" class="w-3 h-3 inline"></i> DOCX</button>\` : ''}
+                \${pdfFileId ? \`<button onclick="adminDownload(\${pdfFileId})" class="text-brand-400 hover:underline text-xs cursor-pointer"><i data-lucide="download" class="w-3 h-3 inline"></i> PDF</button>\` : ''}
               </td>
-            </tr>\`).join('')}
+            </tr>\`;
+            }).join('')}
         </tbody>
       </table>
     </div>

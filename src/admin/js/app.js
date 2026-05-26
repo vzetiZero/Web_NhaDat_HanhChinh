@@ -6,6 +6,7 @@ import { contractsPageJs } from './pages/contracts.js';
 import { usersPageJs } from './pages/users.js';
 import { templatesPageJs } from './pages/templates.js';
 import { auditPageJs } from './pages/audit.js';
+import { agenciesPageJs } from './pages/agencies.js';
 
 export function getAdminAppScript() {
   return `
@@ -34,10 +35,30 @@ function toast(msg, type = 'info') {
   setTimeout(() => el.remove(), 3500);
 }
 
+// ============ API BASE & PATH TRANSLATION ============
+const API_BASE = (function() {
+  const stored = localStorage.getItem('ctnd_api_base');
+  if (stored) return stored;
+  return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? \`\${location.protocol}//\${location.hostname}:3000\`
+    : '';
+})();
+
+// /admin/api/audit → /api/admin/audit-logs (cùng các path translation khác)
+function translatePath(p) {
+  if (!p) return p;
+  p = p.replace(/^\\/admin\\/api\\//, '/api/admin/');
+  p = p.replace(/^\\/api\\/admin\\/dashboard\\/stats(\\?|$)/, '/api/admin/dashboard$1');
+  p = p.replace(/^\\/api\\/admin\\/audit(\\?|$)/, '/api/admin/audit-logs$1');
+  return p;
+}
+
 async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
-  const res = await fetch(path, { ...opts, headers });
+  const translated = translatePath(path);
+  const url = translated.startsWith('http') ? translated : API_BASE + translated;
+  const res = await fetch(url, { ...opts, headers });
   let data = null;
   try { data = await res.json(); } catch {}
   if (res.status === 401) {
@@ -50,13 +71,29 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// Helper: lấy URL upload chuẩn (vì multer fetch không qua adminApi wrapper)
+window.adminApiBase = API_BASE;
+window.adminTranslatePath = translatePath;
+
+// adminDownload: lấy signed URL file rồi mở tab mới tải
+window.adminDownload = async function(fileId) {
+  if (!fileId) { toast('File không tồn tại', 'warn'); return; }
+  try {
+    const res = await api('/api/files/' + fileId + '/signed-url');
+    window.open(res.url, '_blank');
+  } catch (e) {
+    toast('Lỗi tải file: ' + e.message, 'error');
+  }
+};
+
 window.adminApi = api;
 window.adminToast = toast;
 window.adminState = state;
 window.adminFmt = {
   date(s) {
     if (!s) return '-';
-    const d = new Date(s.replace(' ', 'T') + 'Z');
+    // Hỗ trợ cả ISO (Node) và "YYYY-MM-DD HH:MM:SS" (CF SQLite)
+    const d = new Date(typeof s === 'string' && !s.includes('T') ? s.replace(' ', 'T') + 'Z' : s);
     return d.toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   },
   bool(v, t = 'Có', f = 'Không') { return v ? t : f; },
@@ -127,6 +164,7 @@ const routes = {
   contracts: { title: 'Hợp đồng', render: () => window.adminPageContracts() },
   users: { title: 'Người dùng', render: () => window.adminPageUsers() },
   templates: { title: 'Mẫu hợp đồng', render: () => window.adminPageTemplates() },
+  agencies: { title: 'Cơ quan cấp GCN', render: () => window.adminPageAgencies() },
   audit: { title: 'Nhật ký', render: () => window.adminPageAudit() },
 };
 
@@ -149,6 +187,7 @@ ${dashboardPageJs()}
 ${contractsPageJs()}
 ${usersPageJs()}
 ${templatesPageJs()}
+${agenciesPageJs()}
 ${auditPageJs()}
 
 // ============ Boot ============

@@ -48,6 +48,8 @@ const envSchema = z.object({
   TELEGRAM_CHAT_ID: z.string().optional(),
   TURNSTILE_SECRET: z.string().optional(),
   TURNSTILE_SITE_KEY: z.string().optional(),
+  DVCQG_AGENCY_API_URL: z.string().url().optional(),
+  DVCQG_API_KEY: z.string().optional(),
 });
 
 let parsed: z.infer<typeof envSchema>;

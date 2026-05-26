@@ -72,17 +72,26 @@ export function renderDashboardPage(env) {
                   </tr>
                 </thead>
                 <tbody>
-                  \${items.map(c => \`
+                  \${items.map(c => {
+                    // Hỗ trợ cả 2 format: camelCase (Node backend) và snake_case (CF legacy)
+                    const num = c.contractNumber || c.contract_number;
+                    const updatedAt = c.updatedAt || c.updated_at;
+                    const createdAt = c.createdAt || c.created_at;
+                    const dt = new Date(updatedAt || createdAt);
+                    const docxFileId = c.docxFile?.id || c.docxFileId;
+                    const pdfFileId = c.pdfFile?.id || c.pdfFileId;
+                    return \`
                     <tr class="border-b border-slate-100 hover:bg-slate-50">
-                      <td class="px-4 py-3 font-mono text-sm">\${c.contract_number}</td>
+                      <td class="px-4 py-3 font-mono text-sm">\${num}</td>
                       <td class="px-4 py-3"><span class="\${c.status === 'rendered' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'} px-2 py-0.5 rounded text-xs">\${c.status === 'rendered' ? 'Đã xuất file' : 'Nháp'}</span></td>
-                      <td class="px-4 py-3 text-sm text-slate-600">\${new Date((c.updated_at || c.created_at).replace(' ', 'T') + 'Z').toLocaleString('vi-VN')}</td>
+                      <td class="px-4 py-3 text-sm text-slate-600">\${dt.toLocaleString('vi-VN')}</td>
                       <td class="px-4 py-3 text-right whitespace-nowrap">
-                        \${c.docx_r2_key ? \`<a href="/api/contracts/\${c.id}/download/docx" target="_blank" class="text-primary-500 hover:underline text-sm mr-3"><i data-lucide="download" class="w-3 h-3 inline"></i> DOCX</a>\` : ''}
-                        \${c.pdf_r2_key ? \`<a href="/api/contracts/\${c.id}/download/pdf" target="_blank" class="text-primary-500 hover:underline text-sm mr-3"><i data-lucide="download" class="w-3 h-3 inline"></i> PDF</a>\` : ''}
+                        \${docxFileId ? \`<button onclick="downloadFile(\${docxFileId})" class="text-primary-500 hover:underline text-sm mr-3 cursor-pointer"><i data-lucide="download" class="w-3 h-3 inline"></i> DOCX</button>\` : ''}
+                        \${pdfFileId ? \`<button onclick="downloadFile(\${pdfFileId})" class="text-primary-500 hover:underline text-sm mr-3 cursor-pointer"><i data-lucide="download" class="w-3 h-3 inline"></i> PDF</button>\` : ''}
                         <a href="/hop-dong/\${c.id}" class="text-slate-600 hover:underline text-sm"><i data-lucide="eye" class="w-3 h-3 inline"></i> Xem</a>
                       </td>
-                    </tr>\`).join('')}
+                    </tr>\`;
+                  }).join('')}
                 </tbody>
               </table>
             </div>\`;

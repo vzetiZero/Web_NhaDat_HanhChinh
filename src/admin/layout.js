@@ -90,6 +90,9 @@ export function renderAdminLayout(env) {
       <a data-route="templates" href="#/templates" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
         <i data-lucide="file-cog" class="w-4 h-4"></i> Mẫu hợp đồng
       </a>
+      <a data-route="agencies" href="#/agencies" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
+        <i data-lucide="building-2" class="w-4 h-4"></i> Cơ quan cấp GCN
+      </a>
       <a data-route="audit" href="#/audit" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
         <i data-lucide="scroll-text" class="w-4 h-4"></i> Nhật ký
       </a>

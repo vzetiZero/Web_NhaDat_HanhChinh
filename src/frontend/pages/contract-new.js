@@ -1117,24 +1117,89 @@ async function bindCoQuanCapGCN() {
     return [...new Set(items)];
   }
 
-  function renderAgencySuggestions() {
+  function renderLocalAgencySuggestions() {
     const items = buildAgencySuggestions();
     if (!items.length) {
       suggestEl.innerHTML = '<span class="text-xs text-slate-500">Chọn tỉnh/thành để hiện gợi ý cơ quan cấp.</span>';
       return;
     }
-    suggestEl.innerHTML = items.map(name =>
-      \`<button type="button" class="px-2.5 py-1.5 rounded border border-slate-200 bg-white hover:bg-blue-50 hover:border-primary-500 text-xs text-slate-700 text-left" data-gcn-agency="\${esc(name)}">\${esc(name)}</button>\`
+    suggestEl.innerHTML = '<div class="w-full text-xs text-slate-500 mb-1">Gợi ý theo dữ liệu địa phương:</div>' + items.map(name =>
+      \`<button type="button" class="px-2.5 py-1.5 rounded border border-slate-200 bg-white hover:bg-blue-50 hover:border-primary-500 text-xs text-slate-700 text-left" data-gcn-agency-local="\${esc(name)}">\${esc(name)}</button>\`
     ).join('');
-    suggestEl.querySelectorAll('[data-gcn-agency]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        form.thuaDat.coQuanCapGCN = btn.dataset.gcnAgency;
-        agencyEl.value = form.thuaDat.coQuanCapGCN;
-        saveDraft();
-        hideError('err_coQuan');
-        agencyEl.classList.remove('invalid');
-      });
+    suggestEl.querySelectorAll('[data-gcn-agency-local]').forEach(btn => {
+      btn.addEventListener('click', () => applyAgencyValue(btn.dataset.gcnAgencyLocal));
     });
+  }
+
+  function applyAgencyValue(value, agencyId) {
+    form.thuaDat.coQuanCapGCN = value || '';
+    agencyEl.value = form.thuaDat.coQuanCapGCN;
+    saveDraft();
+    hideError('err_coQuan');
+    agencyEl.classList.remove('invalid');
+    if (agencyId) {
+      api('/api/agencies/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ agencyId, rawInput: form.thuaDat.coQuanCapGCN }),
+      }).catch(() => {});
+    }
+  }
+
+  async function renderApiAgencySuggestions() {
+    const typed = agencyEl.value.trim();
+    const provinceCode = form.thuaDat.coQuanCapGCNProvinceCode || '';
+    const provinceName = form.thuaDat.coQuanCapGCNProvinceName || '';
+    const oldDistrict = form.thuaDat.coQuanCapGCNOldDistrict || '';
+    const query = [typed, oldDistrict, provinceName].filter(Boolean).join(' ');
+    if (!query && !provinceCode) {
+      renderLocalAgencySuggestions();
+      return;
+    }
+    suggestEl.innerHTML = '<span class="text-xs text-slate-500">Đang tìm cơ quan từ dữ liệu hệ thống...</span>';
+    try {
+      const params = new URLSearchParams({ q: query, limit: '8' });
+      if (provinceCode) params.set('province_code', provinceCode);
+      const res = await api('/api/agencies/suggest?' + params.toString());
+      const items = res.items || [];
+      if (!items.length) {
+        renderLocalAgencySuggestions();
+        return;
+      }
+      suggestEl.innerHTML = '<div class="w-full text-xs text-slate-500 mb-1">Gợi ý từ dữ liệu cơ quan:</div>' + items.map(item => {
+        const sub = [item.province?.name, item.trustLevel, item.matchReason?.join(', ')].filter(Boolean).join(' · ');
+        return \`<button type="button" class="px-2.5 py-1.5 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-xs text-slate-800 text-left" data-gcn-agency-api="\${esc(item.officialName)}" data-gcn-agency-id="\${item.id}">
+          <div class="font-medium">\${esc(item.officialName)}</div>
+          <div class="text-[11px] text-slate-500">\${esc(sub)}</div>
+        </button>\`;
+      }).join('');
+      suggestEl.querySelectorAll('[data-gcn-agency-api]').forEach(btn => {
+        btn.addEventListener('click', () => applyAgencyValue(btn.dataset.gcnAgencyApi, Number(btn.dataset.gcnAgencyId)));
+      });
+    } catch (_e) {
+      renderLocalAgencySuggestions();
+    }
+  }
+
+  let agencySearchTimer = null;
+  function scheduleAgencySuggestions() {
+    clearTimeout(agencySearchTimer);
+    agencySearchTimer = setTimeout(renderApiAgencySuggestions, 250);
+  }
+
+  function renderAgencySuggestions() {
+    scheduleAgencySuggestions();
+  }
+
+  function renderManualSuggestion() {
+    const rawInput = agencyEl.value.trim();
+    if (!rawInput || rawInput.length < 5) return;
+    api('/api/agencies/suggest-new', {
+      method: 'POST',
+      body: JSON.stringify({
+        rawInput,
+        userNote: 'Tự nhập từ form tạo hồ sơ',
+      }),
+    }).catch(() => {});
   }
 
   provinceEl.addEventListener('change', () => {
@@ -1149,6 +1214,13 @@ async function bindCoQuanCapGCN() {
     form.thuaDat.coQuanCapGCNOldDistrict = oldDistrictEl.value;
     saveDraft();
     renderAgencySuggestions();
+  });
+
+  agencyEl.addEventListener('input', () => {
+    renderAgencySuggestions();
+  });
+  agencyEl.addEventListener('blur', () => {
+    setTimeout(renderManualSuggestion, 300);
   });
 
   renderAgencySuggestions();
@@ -1450,21 +1522,36 @@ async function submitContract() {
     });
     const id = created.contract.id;
 
+    // api wrapper tự translate /render → /generate cho Node backend (CF backend giữ /render)
     const rendered = await api('/api/contracts/' + id + '/render', { method: 'POST' });
     const box = document.getElementById('render-result');
     box.classList.remove('hidden');
+    const num = rendered.contract.contractNumber || rendered.contract.contract_number;
+    // Hỗ trợ cả 2 format response:
+    //  - Node: download.docx = { fileId, url }, download.pdf = { fileId, url } | null
+    //  - CF Workers (legacy): download.docx = "/api/contracts/.../download/docx" (string)
+    const dl = rendered.download || {};
+    const docxUrl = typeof dl.docx === 'object' ? dl.docx?.url : dl.docx;
+    const docxFileId = typeof dl.docx === 'object' ? dl.docx?.fileId : null;
+    const pdfUrl = typeof dl.pdf === 'object' ? dl.pdf?.url : dl.pdf;
+    const pdfFileId = typeof dl.pdf === 'object' ? dl.pdf?.fileId : null;
+    const isHtmlFallback = rendered.pdfMethod === 'html_fallback';
     box.innerHTML = \`
       <div class="font-semibold text-green-800 mb-2">
         <i data-lucide="check-circle-2" class="w-5 h-5 inline"></i>
-        Đã tạo hồ sơ số <span class="font-mono">\${esc(rendered.contract.contract_number)}</span>
+        Đã tạo hồ sơ số <span class="font-mono">\${esc(num)}</span>
       </div>
       <div class="flex flex-wrap gap-2 mt-3">
-        <a href="\${rendered.download.docx}" target="_blank" class="btn-primary inline-flex items-center gap-1">
-          <i data-lucide="file-text" class="w-4 h-4"></i> Tải file Word (.docx)
-        </a>
-        <a href="\${rendered.download.pdf}" target="_blank" class="btn-secondary inline-flex items-center gap-1">
-          <i data-lucide="file-text" class="w-4 h-4"></i> \${rendered.pdfMethod === 'html_fallback' ? 'Xem HTML (in → PDF)' : 'Tải PDF'}
-        </a>
+        \${docxUrl
+          ? \`<a href="\${docxUrl}" target="_blank" class="btn-primary inline-flex items-center gap-1"><i data-lucide="file-text" class="w-4 h-4"></i> Tải file Word (.docx)</a>\`
+          : docxFileId
+            ? \`<button onclick="downloadFile(\${docxFileId})" class="btn-primary"><i data-lucide="file-text" class="w-4 h-4 inline"></i> Tải file Word (.docx)</button>\`
+            : ''}
+        \${pdfUrl
+          ? \`<a href="\${pdfUrl}" target="_blank" class="btn-secondary inline-flex items-center gap-1"><i data-lucide="file-text" class="w-4 h-4"></i> \${isHtmlFallback ? 'Xem HTML (in → PDF)' : 'Tải PDF'}</a>\`
+          : pdfFileId
+            ? \`<button onclick="downloadFile(\${pdfFileId})" class="btn-secondary"><i data-lucide="file-text" class="w-4 h-4 inline"></i> \${isHtmlFallback ? 'Xem HTML (in → PDF)' : 'Tải PDF'}</button>\`
+            : ''}
         <a href="/bang-dieu-khien" class="text-primary-500 underline self-center">Về danh sách</a>
       </div>
     \`;

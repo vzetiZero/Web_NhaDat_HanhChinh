@@ -1,0 +1,76 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "chung-tu-nha-dat",
+	"main": "src/worker.js",
+	"compatibility_date": "2026-05-26",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"workers_dev": true,
+	"preview_urls": false,
+	// ====== D1 Database (SQLite trên edge) ======
+	// Sau khi tạo bằng `wrangler d1 create chungtu-nhadat-db`,
+	// copy database_id thật vào đây.
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_id": "e4ee143b-2160-4144-8233-487589bc74af"
+		},
+		{
+			"binding": "chungtu_nhadat_db",
+			"database_name": "chungtu-nhadat-db",
+			"database_id": "e4ee143b-2160-4144-8233-487589bc74af",
+			"remote": true
+		}
+	],
+	// ====== R2 Storage (lưu file DOCX/PDF + template gốc) ======
+	// Tạo bucket: `wrangler r2 bucket create chungtu-nhadat-files`
+	"r2_buckets": [
+		{
+			"binding": "R2",
+			"bucket_name": "chungtu-nhadat-files"
+		},
+		{
+			"bucket_name": "chungtu-nhadat-files",
+			"binding": "chungtu_nhadat_files",
+			"remote": true
+		}
+	],
+	// ====== Browser Rendering (cho PDF) ======
+	// Cần Workers Paid plan ($5/tháng). Nếu chưa có, comment đoạn dưới ra
+	// (hệ thống tự fallback sang HTML để client tự in -> PDF).
+	// "browser": {
+	//   "binding": "BROWSER"
+	// },
+	// ====== Public assets (images, fonts) ======
+	"assets": {
+		"directory": "./src/frontend/public"
+	},
+	// ====== Environment variables (non-secret) ======
+	"vars": {
+		"SITE_NAME": "Chứng Từ Nhà Đất",
+		"SITE_DESC": "Tạo hợp đồng tặng quyền sử dụng đất nhanh chóng, đúng quy định",
+		"JWT_EXPIRES_IN": "7d",
+		"CONTRACT_NUMBER_PREFIX": "HĐTCTSGLĐ",
+		"ENABLE_TURNSTILE": "false"
+	},
+	// ====== Observability ======
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true
+		}
+	}
+	// ====== Secrets (đặt bằng `wrangler secret put <NAME>`) ======
+	// - JWT_SECRET           : khóa ký JWT (random 64 ký tự)
+	// - TURNSTILE_SECRET     : secret của Cloudflare Turnstile
+	// - TELEGRAM_BOT_TOKEN   : bot báo notification cho admin
+	// - TELEGRAM_CHAT_ID     : chat id nhận notification
+	// - ENCRYPTION_KEY       : khóa AES-256 mã hóa CCCD (32 bytes hex)
+	// - ADMIN_BOOTSTRAP_EMAIL: email admin đầu tiên (chỉ dùng cho /api/setup)
+	// - ADMIN_BOOTSTRAP_PASSWORD: pass admin đầu tiên
+}

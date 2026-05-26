@@ -1,0 +1,22 @@
+{
+  "name": "chung-tu-nha-dat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web app tạo hợp đồng tặng quyền sử dụng đất - Cloudflare Workers + D1",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev",
+    "db:init": "wrangler d1 execute DB --local --file=./scripts/init.sql",
+    "db:init:remote": "wrangler d1 execute DB --remote --file=./scripts/init.sql",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.93.0"
+  },
+  "dependencies": {
+    "docxtemplater": "^3.50.0",
+    "pizzip": "^3.1.7",
+    "@cloudflare/puppeteer": "^1.0.4"
+  }
+}

@@ -1,0 +1,287 @@
+// Shared frontend layout - HTML shell với Tailwind + light theme dịch vụ công VN
+
+import { getConfig } from '../../config/config.js';
+
+export function escHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
+}
+
+/**
+ * Render trang public với header + footer + body
+ */
+export function renderPageShell(env, {
+  title,
+  bodyHtml,
+  pageScript = '',
+  requireAuth = false,
+  hideHeader = false,
+}) {
+  const cfg = getConfig(env);
+  const siteName = cfg.SITE_NAME;
+
+  return `<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escHtml(title)} - ${escHtml(siteName)}</title>
+<meta name="description" content="${escHtml(cfg.SITE_DESC)}" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',500:'#1e40af',600:'#1e3a8a',700:'#172554' },
+        accent:  { 500:'#dc2626',600:'#b91c1c' }
+      },
+      fontFamily: {
+        sans: ['"Be Vietnam Pro"', 'ui-sans-serif', 'system-ui'],
+      }
+    }}
+  };
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { font-family: "Be Vietnam Pro", ui-sans-serif, system-ui; background: #f8fafc; color: #0f172a; }
+  .btn-primary { background:#1e40af; color:#fff; padding:0.625rem 1.25rem; border-radius:0.5rem; font-weight:500; }
+  .btn-primary:hover { background:#172554; }
+  .btn-secondary { background:#fff; border:1px solid #cbd5e1; color:#334155; padding:0.625rem 1.25rem; border-radius:0.5rem; font-weight:500; }
+  .btn-secondary:hover { background:#f1f5f9; }
+  .form-label { display:block; font-size:0.875rem; font-weight:500; color:#334155; margin-bottom:0.25rem; }
+  .form-label .req { color:#dc2626; margin-left:2px; }
+  .form-input, .form-select, .form-textarea {
+    width:100%; padding:0.5rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.5rem;
+    background:#fff; font-size:0.9375rem; outline:none; transition: border-color .15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color:#1e40af; box-shadow:0 0 0 3px rgba(30,64,175,0.1); }
+  .form-error {
+    color:#dc2626; font-size:0.8125rem; margin-top:0.25rem;
+    display: flex; align-items: flex-start; gap: 4px;
+  }
+  .form-error::before { content: "⚠"; flex-shrink: 0; }
+  .form-input.invalid, .form-select.invalid, .form-textarea.invalid {
+    border-color: #dc2626; background: #fef2f2;
+  }
+  .form-input.invalid:focus, .form-select.invalid:focus, .form-textarea.invalid:focus {
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.1);
+  }
+  .form-hint  {
+    color:#475569; font-size:0.8125rem; margin-top:0.375rem; line-height: 1.4;
+    background: #f1f5f9; border-left: 3px solid #1e40af;
+    padding: 6px 10px; border-radius: 0 6px 6px 0;
+    /* Ẩn mặc định, chỉ hiện khi focus vào input cùng field-row */
+    display: none;
+    animation: hintFadeIn .12s ease-out;
+  }
+  .form-hint .ex { color:#0f172a; font-family: ui-monospace, monospace; background:#fff; padding:0 4px; border-radius:3px; border: 1px solid #e2e8f0; }
+  .field-row { margin-bottom: 1rem; position: relative; }
+  .field-row:focus-within .form-hint { display: block; }
+  @keyframes hintFadeIn {
+    from { opacity: 0; transform: translateY(-2px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* Icon "?" nhỏ bên cạnh label để hint cho user biết có hint */
+  .form-label.has-hint::after {
+    content: "ⓘ"; color: #94a3b8; font-size: 0.85em; margin-left: 6px;
+    cursor: help; transition: color .15s;
+  }
+  .field-row:focus-within .form-label.has-hint::after { color: #1e40af; }
+
+  /* Autocomplete dropdown */
+  .ac-wrap { position: relative; }
+  .ac-dropdown {
+    position: absolute; z-index: 30; top: 100%; left: 0; right: 0;
+    background: #fff; border: 1px solid #cbd5e1; border-radius: 0.5rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    max-height: 280px; overflow-y: auto; margin-top: 4px;
+  }
+  .ac-item {
+    padding: 8px 12px; cursor: pointer; font-size: 0.875rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.focused { background: #eff6ff; }
+  .ac-item .sub { color: #64748b; font-size: 0.75rem; }
+  .ac-loading { padding: 8px 12px; color: #94a3b8; font-size: 0.8125rem; font-style: italic; }
+  .ac-empty { padding: 12px; color: #94a3b8; font-size: 0.8125rem; text-align: center; }
+
+  /* Toggle pill */
+  .toggle-pill {
+    display: inline-flex; background: #f1f5f9; border-radius: 8px; padding: 3px;
+    font-size: 0.8125rem;
+  }
+  .toggle-pill button {
+    padding: 4px 12px; border-radius: 6px; color: #64748b;
+    border: none; background: transparent; cursor: pointer; transition: all .15s;
+  }
+  .toggle-pill button.active { background: #1e40af; color: #fff; font-weight: 500; }
+
+  /* Suggestion banner (đề xuất địa chỉ mới) */
+  .suggest-banner {
+    margin-top: 6px; padding: 8px 12px; background: #fef9c3; border: 1px solid #fde047;
+    border-radius: 0.5rem; font-size: 0.8125rem; color: #713f12;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .suggest-banner button {
+    background: #eab308; color: #fff; padding: 2px 10px; border: none; border-radius: 4px;
+    font-size: 0.75rem; cursor: pointer; flex-shrink: 0;
+  }
+  .suggest-banner button:hover { background: #ca8a04; }
+  .step-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 600; background: #e2e8f0; color: #64748b; transition: all .2s;
+  }
+  .step-dot.active { background: #1e40af; color: #fff; }
+  .step-dot.done { background: #16a34a; color: #fff; }
+  .step-line { flex: 1; height: 2px; background: #e2e8f0; transition: background .2s; }
+  .step-line.done { background: #16a34a; }
+</style>
+</head>
+<body>
+
+${hideHeader ? '' : renderHeader(siteName, requireAuth)}
+
+<main class="min-h-[calc(100vh-180px)]">
+${bodyHtml}
+</main>
+
+${renderFooter(siteName)}
+
+<div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+<script>
+${commonJs()}
+</script>
+${pageScript ? `<script>${pageScript}</script>` : ''}
+<script>
+  if (window.lucide) window.lucide.createIcons();
+  ${requireAuth ? 'if (!localStorage.getItem("ctnd_token")) { location.href = "/dang-nhap?next=" + encodeURIComponent(location.pathname + location.search); }' : ''}
+</script>
+
+</body>
+</html>`;
+}
+
+function renderHeader(siteName, requireAuth) {
+  return `
+<header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 text-primary-500 font-bold text-lg">
+      <i data-lucide="building-2" class="w-6 h-6"></i>
+      <span>${escHtml(siteName)}</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-6 text-sm">
+      <a href="/" class="hover:text-primary-500">Trang chủ</a>
+      <a href="/bang-dieu-khien" class="hover:text-primary-500">Hợp đồng của tôi</a>
+      <a href="/hop-dong/moi" class="hover:text-primary-500">Tạo hợp đồng</a>
+    </nav>
+    <div id="user-menu" class="flex items-center gap-2"></div>
+  </div>
+</header>`;
+}
+
+function renderFooter(siteName) {
+  return `
+<footer class="bg-white border-t border-slate-200 mt-8">
+  <div class="max-w-7xl mx-auto px-4 py-6 text-center text-sm text-slate-500">
+    © ${new Date().getFullYear()} ${escHtml(siteName)} - Hệ thống tạo chứng từ nhà đất.
+    <div class="mt-1 text-xs">Tuân thủ Luật Bảo vệ dữ liệu cá nhân (Nghị định 13/2023).</div>
+  </div>
+</footer>`;
+}
+
+function commonJs() {
+  return `
+window.api = async function(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  const token = localStorage.getItem('ctnd_token');
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const fp = localStorage.getItem('ctnd_fp');
+  if (fp) headers['X-Device-Fingerprint'] = fp;
+  const res = await fetch(path, { ...opts, headers });
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (res.status === 401) {
+    localStorage.removeItem('ctnd_token');
+    localStorage.removeItem('ctnd_user');
+    if (!location.pathname.startsWith('/dang-')) location.href = '/dang-nhap';
+    throw new Error('Chưa đăng nhập');
+  }
+  if (res.status === 403 && data?.error === 'DEVICE_MISMATCH') {
+    localStorage.removeItem('ctnd_token');
+    location.href = '/dang-nhap?err=device';
+    throw new Error('Thiết bị không khớp');
+  }
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || ('HTTP ' + res.status));
+  }
+  return data;
+};
+
+window.toast = function(msg, type = 'info') {
+  const cont = document.getElementById('toast-container');
+  if (!cont) return;
+  const colors = { info:'bg-slate-700', success:'bg-emerald-600', error:'bg-red-600', warn:'bg-amber-600' };
+  const el = document.createElement('div');
+  el.className = (colors[type] || colors.info) + ' text-white px-4 py-2 rounded-md shadow-lg text-sm max-w-md';
+  el.textContent = msg;
+  cont.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+};
+
+// Render user menu
+(function renderUserMenu() {
+  const el = document.getElementById('user-menu');
+  if (!el) return;
+  const user = (() => { try { return JSON.parse(localStorage.getItem('ctnd_user') || 'null'); } catch { return null; } })();
+  if (user) {
+    el.innerHTML = \`
+      <span class="text-sm text-slate-600 hidden sm:inline">\${user.full_name || user.email}</span>
+      <button onclick="logout()" class="text-sm text-slate-600 hover:text-red-600 px-3 py-1.5 border border-slate-200 rounded-md">Đăng xuất</button>
+    \`;
+  } else {
+    el.innerHTML = \`
+      <a href="/dang-nhap" class="text-sm px-3 py-1.5 text-slate-600 hover:text-primary-500">Đăng nhập</a>
+      <a href="/dang-ky" class="text-sm px-3 py-1.5 bg-primary-500 text-white rounded-md hover:bg-primary-600">Đăng ký</a>
+    \`;
+  }
+})();
+
+window.logout = async function() {
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
+  localStorage.removeItem('ctnd_token');
+  localStorage.removeItem('ctnd_user');
+  location.href = '/';
+};
+
+// FingerprintJS - lazy load + cache
+window.getFingerprint = async function() {
+  let fp = localStorage.getItem('ctnd_fp');
+  if (fp) return fp;
+  // Dùng FingerprintJS v4 open-source
+  if (!window.FingerprintJS) {
+    await new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'https://openfpcdn.io/fingerprintjs/v4/iife.min.js';
+      s.onload = resolve; s.onerror = resolve;
+      document.head.appendChild(s);
+    });
+  }
+  if (window.FingerprintJS) {
+    const agent = await window.FingerprintJS.load();
+    const r = await agent.get();
+    fp = r.visitorId;
+  } else {
+    // Fallback: random hex (kém an toàn hơn nhưng không block flow)
+    fp = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  localStorage.setItem('ctnd_fp', fp);
+  return fp;
+};
+`;
+}

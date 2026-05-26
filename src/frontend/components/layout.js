@@ -192,6 +192,7 @@ function renderHeader(siteName, requireAuth) {
       <a href="/" class="hover:text-primary-500">Trang chủ</a>
       <a href="/bang-dieu-khien" class="hover:text-primary-500">Hợp đồng của tôi</a>
       <a href="/hop-dong/moi" class="hover:text-primary-500">Tạo hợp đồng</a>
+      <a href="/tai-khoan" class="hover:text-primary-500">Tài khoản của tôi</a>
     </nav>
     <div id="user-menu" class="flex items-center gap-2"></div>
   </div>
@@ -323,6 +324,7 @@ window.toast = function(msg, type = 'info') {
   if (user) {
     el.innerHTML = \`
       <span class="text-sm text-slate-600 hidden sm:inline">\${user.full_name || user.email}</span>
+      <a href="/tai-khoan" class="text-sm text-slate-600 hover:text-primary-500 px-3 py-1.5 border border-slate-200 rounded-md">Tài khoản</a>
       <button onclick="logout()" class="text-sm text-slate-600 hover:text-red-600 px-3 py-1.5 border border-slate-200 rounded-md">Đăng xuất</button>
     \`;
   } else {

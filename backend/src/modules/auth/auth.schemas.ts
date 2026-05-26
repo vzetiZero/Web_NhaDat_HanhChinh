@@ -44,6 +44,19 @@ export const adminLoginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: emailFlex.optional(),
+  phone: z.string().min(9).max(15).optional(),
+}).refine((v) => !!(v.email || v.phone), {
+  message: 'Vui lòng nhập email hoặc số điện thoại',
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  new_password: z.string().min(8),
+  confirm_password: z.string().min(8),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AdminLoginInput = z.infer<typeof adminLoginSchema>;

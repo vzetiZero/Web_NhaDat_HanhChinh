@@ -109,6 +109,38 @@ router.get(
 );
 
 router.get(
+  '/tai-khoan',
+  page(async () => {
+    const mod = await importRootModule('src/frontend/pages/profile.js');
+    return mod.renderProfilePage(frontendEnv(), 'profile');
+  })
+);
+
+router.get(
+  '/tai-khoan/bao-mat',
+  page(async () => {
+    const mod = await importRootModule('src/frontend/pages/profile.js');
+    return mod.renderProfilePage(frontendEnv(), 'security');
+  })
+);
+
+router.get(
+  '/forgot-password',
+  page(async () => {
+    const mod = await importRootModule('src/frontend/pages/password-reset.js');
+    return mod.renderForgotPasswordPage(frontendEnv());
+  })
+);
+
+router.get(
+  '/reset-password',
+  page(async () => {
+    const mod = await importRootModule('src/frontend/pages/password-reset.js');
+    return mod.renderResetPasswordPage(frontendEnv());
+  })
+);
+
+router.get(
   '/hop-dong/moi',
   page(async () => {
     const mod = await importRootModule('src/frontend/pages/contract-new.js');

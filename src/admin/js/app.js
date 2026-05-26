@@ -8,6 +8,8 @@ import { templatesPageJs } from './pages/templates.js';
 import { auditPageJs } from './pages/audit.js';
 import { agenciesPageJs } from './pages/agencies.js';
 import { settingsPageJs } from './pages/settings.js';
+import { adminDataTableJs } from './components/admin-data-table.js';
+import { devicesPageJs } from './pages/devices.js';
 
 export function getAdminAppScript() {
   return `
@@ -166,6 +168,7 @@ const routes = {
   users: { title: 'Người dùng', render: () => window.adminPageUsers() },
   templates: { title: 'Mẫu hợp đồng', render: () => window.adminPageTemplates() },
   agencies: { title: 'Cơ quan cấp GCN', render: () => window.adminPageAgencies() },
+  devices: { title: 'Thiết bị', render: () => window.adminPageDevices() },
   audit: { title: 'Nhật ký', render: () => window.adminPageAudit() },
   settings: { title: 'Cấu hình', render: () => window.adminPageSettings() },
 };
@@ -187,12 +190,16 @@ function navigate() {
   });
 }
 
+// ============ Shared components ============
+${adminDataTableJs()}
+
 // ============ Page modules ============
 ${dashboardPageJs()}
 ${contractsPageJs()}
 ${usersPageJs()}
 ${templatesPageJs()}
 ${agenciesPageJs()}
+${devicesPageJs()}
 ${auditPageJs()}
 ${settingsPageJs()}
 

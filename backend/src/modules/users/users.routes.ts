@@ -10,6 +10,70 @@ import { HttpError } from '@/lib/http-error';
 import { prisma } from '@/lib/prisma';
 import { usersService } from './users.service';
 
+const phoneSchema = z
+  .string()
+  .regex(/^(\+84|0)[1-9][0-9]{8,9}$/, 'SĐT Việt Nam không hợp lệ')
+  .optional()
+  .or(z.literal(''));
+
+const profileUpdateSchema = z.object({
+  full_name: z.string().min(1).max(200).optional(),
+  name: z.string().min(1).max(200).optional(),
+  phone: phoneSchema,
+  date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  age: z.number().int().min(0).max(130).nullable().optional(),
+  gender: z.enum(['male', 'female', 'other']).nullable().optional(),
+  address: z.string().max(1000).nullable().optional(),
+  location_text: z.string().max(1000).nullable().optional(),
+  avatar_url: z.string().url().nullable().optional().or(z.literal('')),
+  province: z.string().max(120).nullable().optional(),
+  district: z.string().max(120).nullable().optional(),
+  ward: z.string().max(120).nullable().optional(),
+});
+
+const changePasswordSchema = z.object({
+  current_password: z.string().min(1),
+  new_password: z.string().min(8),
+  confirm_password: z.string().min(8),
+});
+
+export const meRouter = Router();
+
+meRouter.get(
+  '/',
+  requireAuth,
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const user = await usersService.getProfile(req.user!.userId);
+    res.json({ success: true, user });
+  })
+);
+
+meRouter.patch(
+  '/',
+  requireAuth,
+  validate(profileUpdateSchema),
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const user = await usersService.updateProfile(req.user!.userId, req.body, {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || null,
+    });
+    res.json({ success: true, user, message: 'Cập nhật thông tin thành công.' });
+  })
+);
+
+meRouter.patch(
+  '/password',
+  requireAuth,
+  validate(changePasswordSchema),
+  asyncHandler(async (req: AuthedRequest, res) => {
+    await usersService.changePassword(req.user!.userId, req.body, {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || null,
+    });
+    res.json({ success: true, message: 'Đổi mật khẩu thành công.' });
+  })
+);
+
 // Routes cho user xem device của mình
 export const deviceRouter = Router();
 
@@ -67,7 +131,8 @@ adminUsersRouter.get(
     const status = statusRaw && VALID_STATUSES.includes(statusRaw as UserStatus)
       ? (statusRaw as UserStatus)
       : undefined;
-    const data = await usersService.list({ page, limit, search, status });
+    const role = req.query.role === 'admin' || req.query.role === 'user' ? String(req.query.role) : undefined;
+    const data = await usersService.list({ page, limit, search, status, role });
     res.json({ success: true, ...data });
   })
 );
@@ -79,7 +144,45 @@ adminUsersRouter.get(
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw HttpError.badRequest('ID không hợp lệ');
     const user = await usersService.findById(id);
+    await prisma.auditLog.create({
+      data: {
+        adminId: (req as AuthedRequest).user!.userId,
+        userId: id,
+        event: 'ADMIN_VIEW_USER_DETAIL',
+        targetType: 'user',
+        targetId: id,
+        ipAddress: getClientIp(req),
+      },
+    });
     res.json({ success: true, user });
+  })
+);
+
+const adminStatusSchema = z.object({
+  status: z.enum(['approved', 'rejected', 'blocked']),
+  reason: z.string().max(1000).optional(),
+});
+
+adminUsersRouter.patch(
+  '/:id/status',
+  requireAdmin,
+  validate(adminStatusSchema),
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) throw HttpError.badRequest('ID không hợp lệ');
+    const user = await usersService.updateStatus(id, req.user!.userId, req.body, getClientIp(req));
+    await prisma.auditLog.create({
+      data: {
+        adminId: req.user!.userId,
+        userId: id,
+        event: 'ADMIN_UPDATE_USER_STATUS',
+        targetType: 'user',
+        targetId: id,
+        ipAddress: getClientIp(req),
+        detail: { status: req.body.status, reason: req.body.reason || null },
+      },
+    });
+    res.json({ success: true, user, message: 'Đã cập nhật trạng thái tài khoản' });
   })
 );
 

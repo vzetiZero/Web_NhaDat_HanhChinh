@@ -14,9 +14,14 @@ export async function requireApproved(req: AuthedRequest, _res: Response, next: 
 
   const user = await prisma.user.findUnique({
     where: { id: req.user.userId },
-    select: { status: true },
+    select: { status: true, device: { select: { status: true } } },
   });
   if (!user) return next(HttpError.unauthorized('Tài khoản không tồn tại'));
+
+  // Device blocked → chặn
+  if (user.device && user.device.status === 'blocked') {
+    return next(new HttpError(403, 'DEVICE_BLOCKED', 'Thiết bị của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.', { deviceStatus: 'blocked' }));
+  }
 
   if (user.status === 'approved') return next();
 

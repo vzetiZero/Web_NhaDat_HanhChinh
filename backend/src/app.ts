@@ -11,7 +11,7 @@ import { env, isProd, getCorsOrigins } from '@/config/env';
 import { errorHandler, notFoundHandler } from '@/middleware/error';
 
 import { authRouter, adminAuthRouter } from '@/modules/auth/auth.routes';
-import { deviceRouter, adminUsersRouter } from '@/modules/users/users.routes';
+import { meRouter, deviceRouter, adminUsersRouter } from '@/modules/users/users.routes';
 import { addressRouter } from '@/modules/address/address.routes';
 import { contractsRouter } from '@/modules/contracts/contracts.routes';
 import { templatesRouter, adminTemplatesRouter } from '@/modules/templates/templates.routes';
@@ -20,6 +20,7 @@ import { adminRouter, adminContractsRouter } from '@/modules/admin/admin.routes'
 import { agenciesRouter, adminAgenciesRouter } from '@/modules/agencies/agencies.routes';
 import { publicSettingsRouter, adminSettingsRouter } from '@/modules/settings/settings.routes';
 import { adminNotificationsRouter } from '@/modules/notifications/notifications.routes';
+import { userDevicesRouter, adminDevicesRouter, adminUserDevicesRouter } from '@/modules/devices/devices.routes';
 import { frontendRouter } from '@/frontend/frontend.routes';
 
 export function createApp(): Express {
@@ -74,6 +75,7 @@ export function createApp(): Express {
 
   // User-facing
   app.use('/api/auth', authRouter);
+  app.use('/api/me', meRouter);
   app.use('/api/device', deviceRouter);
   app.use('/api/address', addressRouter);
   app.use('/api/contracts', contractsRouter);
@@ -81,6 +83,7 @@ export function createApp(): Express {
   app.use('/api/files', filesRouter);
   app.use('/api/agencies', agenciesRouter);
   app.use('/api/settings', publicSettingsRouter);
+  app.use('/api/device', userDevicesRouter);
 
   // Admin
   app.use('/api/admin/auth', adminAuthRouter);
@@ -90,6 +93,8 @@ export function createApp(): Express {
   app.use('/api/admin/agencies', adminAgenciesRouter);
   app.use('/api/admin/settings', adminSettingsRouter);
   app.use('/api/admin/notifications', adminNotificationsRouter);
+  app.use('/api/admin/devices', adminDevicesRouter);
+  app.use('/api/admin/users/:id/devices', adminUserDevicesRouter);
   app.use('/api/admin', adminRouter);
 
   // 404 + error handler (luôn đặt cuối cùng)

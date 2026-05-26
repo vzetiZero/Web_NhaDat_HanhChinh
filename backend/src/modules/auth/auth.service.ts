@@ -174,6 +174,19 @@ class AuthService {
             deviceFingerprint: input.fingerprint,
           },
         });
+      } else if (user.device.status === 'blocked') {
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            event: 'login_device_blocked',
+            ipAddress: ctx.ip || null,
+            userAgent: ctx.userAgent || null,
+            deviceFingerprint: input.fingerprint,
+          },
+        });
+        throw new HttpError(403, 'DEVICE_BLOCKED', 'Thiết bị của bạn đã bị quản trị viên khóa. Vui lòng liên hệ admin.', {
+          deviceStatus: 'blocked',
+        });
       } else if (user.device.fingerprint !== input.fingerprint) {
         await prisma.auditLog.create({
           data: {
@@ -187,9 +200,9 @@ class AuthService {
             },
           },
         });
-        throw HttpError.forbidden(
-          'Tài khoản đã được gắn với thiết bị khác. Vui lòng liên hệ quản trị viên để đặt lại thiết bị.'
-        );
+        throw new HttpError(403, 'DEVICE_MISMATCH', 'Tài khoản đã được gắn với thiết bị khác. Vui lòng liên hệ quản trị viên để đặt lại thiết bị.', {
+          deviceStatus: 'mismatch',
+        });
       } else {
         await prisma.device.update({
           where: { id: user.device.id },

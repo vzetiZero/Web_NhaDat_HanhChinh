@@ -1,4 +1,4 @@
-// Trang tạo hồ sơ - form 5 bước với multi-member + đầy đủ trường GCN
+﻿// Trang tạo hồ sơ - form 5 bước với multi-member + đầy đủ trường GCN
 // - Hint chi tiết + error inline cho mọi field bắt buộc
 // - Address picker: chọn Tỉnh → Xã (dropdown), KHÔNG gõ tay tự do
 // - Toggle "địa chỉ cũ ↔ địa chỉ mới sau sáp nhập" với gợi ý qua API
@@ -551,12 +551,26 @@ function coQuanCapGCNInput(t) {
   return \`
     <div class="space-y-2" data-gcn-agency-root>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <select class="form-select" id="gcn-agency-province">
-          <option value="">-- Chọn tỉnh/thành cấp GCN --</option>
-        </select>
+        <div class="relative" data-gcn-province-combo>
+          <button type="button" class="form-select flex items-center justify-between gap-2 text-left" id="gcn-agency-province-btn">
+            <span id="gcn-agency-province-label">-- Chọn tỉnh/thành cấp GCN --</span>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+          </button>
+          <div class="ac-dropdown hidden" id="gcn-agency-province-menu">
+            <div class="p-2 border-b border-slate-100">
+              <input type="search" class="form-input" id="gcn-agency-province-search" placeholder="Nhập để tìm tỉnh/thành..." autocomplete="off" />
+            </div>
+            <div id="gcn-agency-province-list"></div>
+          </div>
+          <select class="hidden" id="gcn-agency-province">
+            <option value="">-- Chọn tỉnh/thành cấp GCN --</option>
+          </select>
+        </div>
         <input type="text" class="form-input" id="gcn-agency-old-district"
           value="\${esc(t.coQuanCapGCNOldDistrict || '')}"
-          placeholder="Huyện/quận cũ nếu có, VD: Huyện Cao Lãnh" />
+          list="gcn-agency-old-district-list"
+          placeholder="Nhập tìm huyện/quận cũ, VD: Huyện Cao Lãnh" />
+        <datalist id="gcn-agency-old-district-list"></datalist>
       </div>
       <input type="text" data-bind="thuaDat.coQuanCapGCN" data-required class="form-input"
         value="\${esc(t.coQuanCapGCN)}"
@@ -1222,7 +1236,13 @@ async function bindCoQuanCapGCN() {
   const root = document.querySelector('[data-gcn-agency-root]');
   if (!root) return;
   const provinceEl = document.getElementById('gcn-agency-province');
+  const provinceBtn = document.getElementById('gcn-agency-province-btn');
+  const provinceLabel = document.getElementById('gcn-agency-province-label');
+  const provinceMenu = document.getElementById('gcn-agency-province-menu');
+  const provinceSearch = document.getElementById('gcn-agency-province-search');
+  const provinceList = document.getElementById('gcn-agency-province-list');
   const oldDistrictEl = document.getElementById('gcn-agency-old-district');
+  const oldDistrictList = document.getElementById('gcn-agency-old-district-list');
   const agencyEl = root.querySelector('[data-bind="thuaDat.coQuanCapGCN"]');
   const suggestEl = document.getElementById('gcn-agency-suggestions');
   const provinces = await loadProvinces();
@@ -1233,6 +1253,53 @@ async function bindCoQuanCapGCN() {
 
   provinceEl.innerHTML = '<option value="">-- Chọn tỉnh/thành cấp GCN --</option>' +
     provinces.map(p => \`<option value="\${esc(p.code)}" \${form.thuaDat.coQuanCapGCNProvinceCode === p.code ? 'selected' : ''}>\${esc(p.name)}</option>\`).join('');
+
+  function normalizeSearchText(value) {
+    return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd');
+  }
+
+  function renderProvincePicker() {
+    const q = normalizeSearchText(provinceSearch?.value || '');
+    const selected = provinces.find(p => p.code === form.thuaDat.coQuanCapGCNProvinceCode);
+    const items = provinces.filter(p => !q || normalizeSearchText(p.name).includes(q));
+    if (provinceLabel) provinceLabel.textContent = selected?.name || '-- Chọn tỉnh/thành cấp GCN --';
+    if (!provinceList) return;
+    provinceList.innerHTML = items.length
+      ? items.map(p => \`<button type="button" class="ac-item w-full text-left \${selected?.code === p.code ? 'focused' : ''}" data-gcn-province-code="\${esc(p.code)}">\${esc(p.name)}</button>\`).join('')
+      : '<div class="ac-empty">Không tìm thấy tỉnh/thành</div>';
+    provinceList.querySelectorAll('[data-gcn-province-code]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        provinceEl.value = btn.dataset.gcnProvinceCode;
+        provinceEl.dispatchEvent(new Event('change'));
+        provinceMenu?.classList.add('hidden');
+      });
+    });
+  }
+
+  function renderOldDistrictHints() {
+    if (!oldDistrictList) return;
+    const provinceName = form.thuaDat.coQuanCapGCNProvinceName || '';
+    const base = provinceName ? provinceName.replace(/^tỉnh\s+/i, '').replace(/^thành phố\s+/i, '') : '';
+    const names = [];
+    if (base) {
+      names.push('Huyện ' + base);
+      names.push('Thành phố ' + base);
+      names.push('Thị xã ' + base);
+    }
+    const typed = oldDistrictEl.value.trim();
+    if (typed) names.unshift(typed);
+    oldDistrictList.innerHTML = [...new Set(names)].map(v => \`<option value="\${esc(v)}"></option>\`).join('');
+  }
+
+  provinceBtn?.addEventListener('click', () => {
+    provinceMenu?.classList.toggle('hidden');
+    setTimeout(() => provinceSearch?.focus(), 0);
+  });
+  provinceSearch?.addEventListener('input', renderProvincePicker);
+  root.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => provinceMenu?.classList.add('hidden'));
+  renderProvincePicker();
+  renderOldDistrictHints();
 
   function upperVN(value) {
     return String(value || '').trim().toLocaleUpperCase('vi-VN');
@@ -1350,12 +1417,15 @@ async function bindCoQuanCapGCN() {
     form.thuaDat.coQuanCapGCNProvinceCode = found?.code || '';
     form.thuaDat.coQuanCapGCNProvinceName = found?.name || '';
     saveDraft();
+    renderProvincePicker();
+    renderOldDistrictHints();
     renderAgencySuggestions();
   });
 
   oldDistrictEl.addEventListener('input', () => {
     form.thuaDat.coQuanCapGCNOldDistrict = oldDistrictEl.value;
     saveDraft();
+    renderOldDistrictHints();
     renderAgencySuggestions();
   });
 

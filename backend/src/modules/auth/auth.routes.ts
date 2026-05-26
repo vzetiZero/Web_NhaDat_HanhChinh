@@ -4,8 +4,9 @@ import { Router } from 'express';
 import { asyncHandler } from '@/middleware/error';
 import { validate } from '@/middleware/validate';
 import { requireAuth, getClientIp, getDeviceFingerprint, AuthedRequest } from '@/middleware/auth';
-import { registerSchema, loginSchema, adminLoginSchema } from './auth.schemas';
+import { registerSchema, loginSchema, adminLoginSchema, forgotPasswordSchema, resetPasswordSchema } from './auth.schemas';
 import { authService } from './auth.service';
+import { usersService } from '@/modules/users/users.service';
 
 export const authRouter = Router();
 
@@ -30,6 +31,30 @@ authRouter.post(
       userAgent: req.headers['user-agent'] || null,
     });
     res.json({ success: true, ...result });
+  })
+);
+
+authRouter.post(
+  '/forgot-password',
+  validate(forgotPasswordSchema),
+  asyncHandler(async (req, res) => {
+    const result = await usersService.forgotPassword(req.body.email || req.body.phone, {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || null,
+    });
+    res.json({ success: true, ...result });
+  })
+);
+
+authRouter.post(
+  '/reset-password',
+  validate(resetPasswordSchema),
+  asyncHandler(async (req, res) => {
+    await usersService.resetPassword(req.body, {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || null,
+    });
+    res.json({ success: true, message: 'Đặt lại mật khẩu thành công' });
   })
 );
 

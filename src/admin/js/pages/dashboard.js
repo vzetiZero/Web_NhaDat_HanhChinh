@@ -4,7 +4,9 @@ export function dashboardPageJs() {
   return `
 window.adminPageDashboard = async function() {
   const data = await adminApi('/admin/api/dashboard/stats');
-  const c = data.contracts, u = data.users, d = data.devices;
+  const c = data.contracts || {};
+  const u = data.users || {};
+  const d = data.devices || { active: u.activeDevices || 0, total: 0, other: 0 };
   const days = data.contractsLast7Days || [];
   const pendingCount = u.pending || 0;
 
@@ -41,17 +43,17 @@ window.adminPageDashboard = async function() {
         <h2 class="font-semibold mb-4 flex items-center gap-2"><i data-lucide="trending-up" class="w-4 h-4"></i> 7 ngày gần đây</h2>
         \${renderChart(days)}
       </div>
-      <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <a href="#/devices" class="block bg-slate-800 border border-slate-700 rounded-xl p-5 hover:border-brand-500 transition">
         <h2 class="font-semibold mb-4 flex items-center gap-2"><i data-lucide="shield-check" class="w-4 h-4"></i> Thiết bị đã gắn</h2>
-        <div class="text-4xl font-bold text-brand-500">\${d.active}</div>
-        <div class="text-sm text-slate-400 mt-2">Số thiết bị đang hoạt động</div>
+        <div class="text-4xl font-bold text-brand-500">\${d.active || 0}</div>
+        <div class="text-sm text-slate-400 mt-2">Số thiết bị đang hoạt động • Bấm để quản lý</div>
         <div class="mt-4 pt-4 border-t border-slate-700 text-sm text-slate-300">
-          <div class="flex justify-between mb-1"><span>Admin:</span><span>\${u.admins}</span></div>
+          <div class="flex justify-between mb-1"><span>Admin:</span><span>\${u.admins || 0}</span></div>
           <div class="flex justify-between mb-1"><span>User đã duyệt:</span><span class="text-emerald-400">\${u.approved || u.active || 0}</span></div>
           <div class="flex justify-between mb-1"><span>Chờ duyệt:</span><span class="text-amber-400">\${u.pending || 0}</span></div>
           <div class="flex justify-between"><span>Bị khóa/từ chối:</span><span class="text-red-400">\${(u.blocked || u.suspended || 0) + (u.rejected || 0)}</span></div>
         </div>
-      </div>
+      </a>
     </div>
   \`;
   document.getElementById('page-content').innerHTML = html;

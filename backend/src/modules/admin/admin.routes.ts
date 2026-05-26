@@ -14,14 +14,21 @@ adminRouter.get(
   '/dashboard',
   requireAdmin,
   asyncHandler(async (_req, res) => {
-    const [contracts, users] = await Promise.all([
+    const [contracts, users, deviceCounts] = await Promise.all([
       contractsService.getStats(),
       usersService.getUserStats(),
+      prisma.$transaction([
+        prisma.device.count(),
+        prisma.device.count({ where: { status: 'active' } }),
+        prisma.device.count({ where: { status: { not: 'active' } } }),
+      ]),
     ]);
+    const [deviceTotal, deviceActive, deviceOther] = deviceCounts;
     res.json({
       success: true,
       contracts,
       users,
+      devices: { total: deviceTotal, active: deviceActive, other: deviceOther },
       contractsLast7Days: contracts.byDay,
     });
   })

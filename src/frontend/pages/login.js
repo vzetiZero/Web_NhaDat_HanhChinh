@@ -33,6 +33,8 @@ export function renderLoginPage(env) {
 
             <div class="mt-4 text-center text-sm text-slate-500">
               Chưa có tài khoản? <a href="/dang-ky" class="text-primary-500 hover:underline">Đăng ký ngay</a>
+              <span class="mx-2 text-slate-300">|</span>
+              <a href="/forgot-password" class="text-primary-500 hover:underline">Quên mật khẩu?</a>
             </div>
 
             <div class="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-400 text-center">

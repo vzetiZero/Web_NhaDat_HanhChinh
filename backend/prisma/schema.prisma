@@ -7,10 +7,12 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
+  // url: runtime connection — DÙNG TRANSACTION POOLER (port 6543, ?pgbouncer=true)
+  //      để tránh "max clients reached in session mode" (session pooler cap 15 clients).
   url       = env("DATABASE_URL")
-  // directUrl dùng cho prisma migrate (cần connection trực tiếp, không qua pooler)
-  // Comment out nếu không có IPv6/IPv4 add-on - Prisma sẽ fallback dùng url chính
-  // directUrl = env("DIRECT_URL")
+  // directUrl: dùng cho `prisma migrate`/`db push` — KHÔNG qua pgBouncer.
+  //            Trỏ tới Session Pooler (port 5432) hoặc direct connection.
+  directUrl = env("DIRECT_URL")
 }
 
 // =========================================

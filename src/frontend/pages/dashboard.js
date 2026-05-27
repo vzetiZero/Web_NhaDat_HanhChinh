@@ -32,11 +32,14 @@ export function renderDashboardPage(env) {
         try {
           // Hiển thị thiết bị hiện tại
           try {
-            const d = await api('/api/device/current');
-            if (d.device) {
+            const d = await api('/api/device/me');
+            const dev = (d.items && d.items[0]) || null;
+            if (dev) {
               const box = document.getElementById('device-info');
-              const bound = new Date(d.device.bound_at.replace(' ', 'T') + 'Z');
-              box.innerHTML = '<i data-lucide="shield-check" class="w-4 h-4 inline"></i> Thiết bị này đã được gắn từ ' + bound.toLocaleDateString('vi-VN') + ' (' + d.device.fingerprint_short + ')';
+              const bound = dev.boundAt ? new Date(dev.boundAt) : null;
+              const dateStr = bound ? bound.toLocaleDateString('vi-VN') : '-';
+              const short = dev.fingerprintShort || '';
+              box.innerHTML = '<div class="flex items-center justify-between gap-3 flex-wrap"><div><i data-lucide="shield-check" class="w-4 h-4 inline"></i> Thiết bị này đã được gắn từ ' + dateStr + (short ? ' (' + short + ')' : '') + '</div><a href="/thiet-bi-cua-toi" class="text-blue-700 underline text-xs whitespace-nowrap">Xem chi tiết →</a></div>';
               box.classList.remove('hidden');
               if (window.lucide) window.lucide.createIcons();
             }

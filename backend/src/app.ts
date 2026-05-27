@@ -21,6 +21,12 @@ import { agenciesRouter, adminAgenciesRouter } from '@/modules/agencies/agencies
 import { publicSettingsRouter, adminSettingsRouter } from '@/modules/settings/settings.routes';
 import { adminNotificationsRouter } from '@/modules/notifications/notifications.routes';
 import { userDevicesRouter, adminDevicesRouter, adminUserDevicesRouter } from '@/modules/devices/devices.routes';
+import {
+  publicContentRouter,
+  adminBannersRouter,
+  adminFaqsRouter,
+  adminTemplateSamplesRouter,
+} from '@/modules/content/content.routes';
 import { frontendRouter } from '@/frontend/frontend.routes';
 
 export function createApp(): Express {
@@ -84,6 +90,7 @@ export function createApp(): Express {
   app.use('/api/agencies', agenciesRouter);
   app.use('/api/settings', publicSettingsRouter);
   app.use('/api/device', userDevicesRouter);
+  app.use('/api/public', publicContentRouter);
 
   // Admin
   app.use('/api/admin/auth', adminAuthRouter);
@@ -95,6 +102,9 @@ export function createApp(): Express {
   app.use('/api/admin/notifications', adminNotificationsRouter);
   app.use('/api/admin/devices', adminDevicesRouter);
   app.use('/api/admin/users/:id/devices', adminUserDevicesRouter);
+  app.use('/api/admin/banners', adminBannersRouter);
+  app.use('/api/admin/faqs', adminFaqsRouter);
+  app.use('/api/admin/template-samples', adminTemplateSamplesRouter);
   app.use('/api/admin', adminRouter);
 
   // 404 + error handler (luôn đặt cuối cùng)

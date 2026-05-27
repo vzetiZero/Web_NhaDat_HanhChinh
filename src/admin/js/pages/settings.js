@@ -23,6 +23,15 @@ window.adminPageSettings = async function() {
         \${textField('Tên website', 'siteName', s.siteName, 'Chứng Từ Nhà Đất')}
         \${assetField('Logo', 'siteLogoUrl', s.siteLogoUrl, 'logo')}
         \${assetField('Favicon', 'faviconUrl', s.faviconUrl, 'favicon')}
+        \${textField('Màu chủ đạo (hex)', 'primaryColor', s.primaryColor, '#1e40af')}
+        \${textField('Footer text', 'footerText', s.footerText, 'Hệ thống tạo chứng từ nhà đất')}
+      </fieldset>
+
+      <fieldset class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <legend class="px-2 text-sm font-semibold text-slate-300">Hero trang chủ (mặc định)</legend>
+        \${textField('Tiêu đề Hero', 'heroTitle', s.heroTitle, 'Tạo hợp đồng nhà đất tự động')}
+        \${textareaField('Mô tả Hero', 'heroSubtitle', s.heroSubtitle, 'Điền thông tin nhanh, quét CCCD, xuất file PDF/DOCX', 2)}
+        <p class="text-xs text-slate-500">Banner active sẽ ghi đè giá trị này khi user vào trang chủ.</p>
       </fieldset>
 
       <fieldset class="bg-slate-800 border border-slate-700 rounded-xl p-5">
@@ -179,7 +188,7 @@ async function handleSettingsSubmit(e) {
   e.preventDefault();
   const btn = document.getElementById('save-btn');
   btn.disabled = true; btn.textContent = 'Đang lưu...';
-  const fields = ['siteName','siteLogoUrl','faviconUrl','adminPhone','adminEmail','adminZaloUrl','adminFacebookUrl','adminTelegramUrl','supportNoticeTitle','supportNoticeContent','pendingUserMessage','rejectedUserMessage','modalTitle','modalContent','modalButtonText','modalButtonUrl'];
+  const fields = ['siteName','siteLogoUrl','faviconUrl','primaryColor','footerText','heroTitle','heroSubtitle','adminPhone','adminEmail','adminZaloUrl','adminFacebookUrl','adminTelegramUrl','supportNoticeTitle','supportNoticeContent','pendingUserMessage','rejectedUserMessage','modalTitle','modalContent','modalButtonText','modalButtonUrl'];
   const body = {};
   for (const f of fields) {
     const el = document.getElementById('f-' + f);

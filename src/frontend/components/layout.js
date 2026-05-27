@@ -153,6 +153,14 @@ export function renderPageShell(env, {
   .step-dot.done { background: #16a34a; color: #fff; }
   .step-line { flex: 1; height: 2px; background: #e2e8f0; transition: background .2s; }
   .step-line.done { background: #16a34a; }
+
+  /* Multi-line truncate (line-clamp) */
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Hide native disclosure marker on <summary> */
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary { list-style: none; }
 </style>
 </head>
 <body>
@@ -188,11 +196,13 @@ function renderHeader(siteName, requireAuth) {
       <span data-site-logo><i data-lucide="building-2" class="w-6 h-6"></i></span>
       <span data-site-name>${escHtml(siteName)}</span>
     </a>
-    <nav class="hidden md:flex items-center gap-6 text-sm">
+    <nav class="hidden md:flex items-center gap-5 text-sm">
       <a href="/" class="hover:text-primary-500">Trang chủ</a>
+      <a href="/#mau-hop-dong" class="hover:text-primary-500">Mẫu hợp đồng</a>
       <a href="/bang-dieu-khien" class="hover:text-primary-500">Hợp đồng của tôi</a>
-      <a href="/hop-dong/moi" class="hover:text-primary-500">Tạo hợp đồng</a>
-      <a href="/tai-khoan" class="hover:text-primary-500">Tài khoản của tôi</a>
+      <a href="/hop-dong/moi" class="hover:text-primary-500">Tạo mới</a>
+      <a href="/#lien-he" class="hover:text-primary-500">Liên hệ</a>
+      <a href="/tai-khoan" class="hover:text-primary-500">Tài khoản</a>
     </nav>
     <div id="user-menu" class="flex items-center gap-2"></div>
   </div>
@@ -370,6 +380,14 @@ window.applyPublicSettings = function(s) {
   if (s.faviconUrl) {
     const link = document.getElementById('dynamic-favicon');
     if (link) link.href = s.faviconUrl;
+  }
+  // Màu chủ đạo - override CSS custom properties
+  if (s.primaryColor && /^#[0-9a-fA-F]{6}$/.test(s.primaryColor)) {
+    document.documentElement.style.setProperty('--brand-color', s.primaryColor);
+  }
+  // Footer text custom
+  if (s.footerText) {
+    document.querySelectorAll('[data-footer-text]').forEach(el => { el.textContent = s.footerText; });
   }
   // Site name trong header
   if (s.siteName) {

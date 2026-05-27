@@ -13,6 +13,10 @@ export interface SiteSettingsInput {
   siteName?: string;
   siteLogoUrl?: string | null;
   faviconUrl?: string | null;
+  primaryColor?: string | null;
+  footerText?: string | null;
+  heroTitle?: string | null;
+  heroSubtitle?: string | null;
   adminPhone?: string | null;
   adminZaloUrl?: string | null;
   adminFacebookUrl?: string | null;
@@ -52,6 +56,10 @@ class SettingsService {
       siteName: s.siteName,
       siteLogoUrl: s.siteLogoUrl,
       faviconUrl: s.faviconUrl,
+      primaryColor: s.primaryColor,
+      footerText: s.footerText,
+      heroTitle: s.heroTitle,
+      heroSubtitle: s.heroSubtitle,
       adminPhone: s.adminPhone,
       adminZaloUrl: s.adminZaloUrl,
       adminFacebookUrl: s.adminFacebookUrl,
@@ -83,6 +91,13 @@ class SettingsService {
       'adminTelegramUrl',
       'modalButtonUrl',
     ];
+    // Validate primaryColor (hex format like #1e40af)
+    if (typeof input.primaryColor === 'string' && input.primaryColor.trim()) {
+      const trimmed = input.primaryColor.trim();
+      if (!/^#?[0-9a-fA-F]{6}$/.test(trimmed)) {
+        throw new Error('Màu chủ đạo phải là mã hex 6 ký tự (vd: #1e40af)');
+      }
+    }
     for (const f of urlFields) {
       const v = input[f];
       if (typeof v === 'string' && v.trim() && !URL_PATTERN.test(v.trim())) {
@@ -105,12 +120,22 @@ class SettingsService {
       return t === '' ? null : t;
     };
 
+    const normalizeHex = (v: unknown): string | null | undefined => {
+      const t = trimmedString(v);
+      if (t === undefined || t === null) return t;
+      return t.startsWith('#') ? t : `#${t}`;
+    };
+
     const data = {
       siteName: typeof input.siteName === 'string' && input.siteName.trim()
         ? input.siteName.trim()
         : undefined,
       siteLogoUrl: trimmedString(input.siteLogoUrl),
       faviconUrl: trimmedString(input.faviconUrl),
+      primaryColor: normalizeHex(input.primaryColor),
+      footerText: trimmedString(input.footerText),
+      heroTitle: trimmedString(input.heroTitle),
+      heroSubtitle: trimmedString(input.heroSubtitle),
       adminPhone: trimmedString(input.adminPhone),
       adminZaloUrl: trimmedString(input.adminZaloUrl),
       adminFacebookUrl: trimmedString(input.adminFacebookUrl),

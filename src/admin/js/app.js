@@ -10,6 +10,9 @@ import { agenciesPageJs } from './pages/agencies.js';
 import { settingsPageJs } from './pages/settings.js';
 import { adminDataTableJs } from './components/admin-data-table.js';
 import { devicesPageJs } from './pages/devices.js';
+import { bannersPageJs } from './pages/banners.js';
+import { faqsPageJs } from './pages/faqs.js';
+import { templateSamplesPageJs } from './pages/template-samples.js';
 
 export function getAdminAppScript() {
   return `
@@ -169,6 +172,9 @@ const routes = {
   templates: { title: 'Mẫu hợp đồng', render: () => window.adminPageTemplates() },
   agencies: { title: 'Cơ quan cấp GCN', render: () => window.adminPageAgencies() },
   devices: { title: 'Thiết bị', render: () => window.adminPageDevices() },
+  banners: { title: 'Banner trang chủ', render: () => window.adminPageBanners() },
+  faqs: { title: 'FAQ', render: () => window.adminPageFaqs() },
+  'template-samples': { title: 'Mẫu hiển thị', render: () => window.adminPageTemplateSamples() },
   audit: { title: 'Nhật ký', render: () => window.adminPageAudit() },
   settings: { title: 'Cấu hình', render: () => window.adminPageSettings() },
 };
@@ -200,6 +206,9 @@ ${usersPageJs()}
 ${templatesPageJs()}
 ${agenciesPageJs()}
 ${devicesPageJs()}
+${bannersPageJs()}
+${faqsPageJs()}
+${templateSamplesPageJs()}
 ${auditPageJs()}
 ${settingsPageJs()}
 

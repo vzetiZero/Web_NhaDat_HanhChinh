@@ -96,6 +96,19 @@ export function renderAdminLayout(env) {
       <a data-route="devices" href="#/devices" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
         <i data-lucide="smartphone" class="w-4 h-4"></i> Thiết bị
       </a>
+
+      <div class="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-slate-500 font-semibold">Nội dung trang chủ</div>
+      <a data-route="banners" href="#/banners" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
+        <i data-lucide="image" class="w-4 h-4"></i> Banner
+      </a>
+      <a data-route="template-samples" href="#/template-samples" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i> Mẫu hiển thị
+      </a>
+      <a data-route="faqs" href="#/faqs" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
+        <i data-lucide="help-circle" class="w-4 h-4"></i> FAQ
+      </a>
+
+      <div class="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-slate-500 font-semibold">Hệ thống</div>
       <a data-route="audit" href="#/audit" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-700 cursor-pointer">
         <i data-lucide="scroll-text" class="w-4 h-4"></i> Nhật ký
       </a>

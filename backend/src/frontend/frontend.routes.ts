@@ -125,6 +125,14 @@ router.get(
 );
 
 router.get(
+  '/thiet-bi-cua-toi',
+  page(async () => {
+    const mod = await importRootModule('src/frontend/pages/my-devices.js');
+    return mod.renderMyDevicesPage(frontendEnv());
+  })
+);
+
+router.get(
   '/forgot-password',
   page(async () => {
     const mod = await importRootModule('src/frontend/pages/password-reset.js');
